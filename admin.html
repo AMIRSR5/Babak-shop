@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>پنل مدیریت - آرایشی بهداشتی بابک</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+* { box-sizing:border-box; }
+html,body{ margin:0; direction:rtl; font-family:"Vazirmatn",Tahoma,sans-serif; background:#f9fafb; color:#374151; }
+button{ font-family:inherit; cursor:pointer; border:none; }
+input,textarea,select{ font-family:inherit; }
+.center-screen{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px; }
+.login-bg{ background:linear-gradient(135deg,#7c3aed,#ec4899,#f472b6); }
+.login-card{ background:#fff; border-radius:24px; box-shadow:0 10px 30px rgba(0,0,0,.2); padding:32px; width:100%; max-width:380px; display:flex; flex-direction:column; gap:12px; }
+.login-card h1{ text-align:center; color:#7c3aed; font-size:19px; margin:0 0 2px; }
+.login-card .sub{ text-align:center; font-size:12px; color:#9ca3af; margin:-8px 0 8px; }
+.field{ width:100%; border:1px solid #e5e7eb; border-radius:12px; padding:11px 14px; font-size:14px; }
+.field:focus{ outline:none; border-color:#ec4899; }
+.btn-main{ border-radius:12px; padding:12px; font-weight:700; color:#fff; background:linear-gradient(90deg,#ec4899,#9333ea); font-size:14px; }
+.btn-main:disabled{ opacity:.5; }
+.err-text{ color:#ef4444; font-size:13px; text-align:center; margin:0; }
+
+.admin-header{ background:linear-gradient(90deg,#9333ea,#ec4899,#7c3aed); color:#fff; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; }
+.admin-header b{ font-size:15px; }
+.admin-header .email{ font-size:11px; opacity:.8; direction:ltr; display:inline-block; }
+.btn-out{ background:rgba(255,255,255,.15); color:#fff; border-radius:999px; padding:6px 14px; font-size:12px; }
+
+.tabs{ background:#fff; border-bottom:1px solid #e5e7eb; display:flex; overflow-x:auto; position:sticky; top:0; z-index:5; }
+.tab-btn{ flex-shrink:0; background:none; padding:12px 16px; font-size:13px; font-weight:700; color:#6b7280; border-bottom:2px solid transparent; }
+.tab-btn.active{ color:#db2777; border-color:#ec4899; }
+
+.wrap{ max-width:760px; margin:0 auto; padding:16px; }
+.section-title{ color:#7c3aed; font-weight:800; margin:0 0 12px; }
+.card-white{ background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:16px; margin-bottom:12px; }
+.row-flex{ display:flex; gap:8px; }
+.list-item{ display:flex; align-items:center; gap:10px; background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:10px 12px; margin-bottom:8px; }
+.list-item img{ width:44px; height:44px; border-radius:10px; object-fit:cover; background:#fdf2f8; flex-shrink:0; }
+.list-item .thumb-empty{ width:44px; height:44px; border-radius:10px; background:#fdf2f8; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.item-title{ font-weight:700; font-size:13.5px; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.item-sub{ font-size:11.5px; color:#9ca3af; margin:2px 0 0; }
+.link-btn{ background:none; font-size:12.5px; font-weight:600; flex-shrink:0; }
+.link-purple{ color:#7c3aed; }
+.link-red{ color:#ef4444; }
+.muted{ color:#9ca3af; font-size:13px; }
+.hint{ font-size:11.5px; color:#9ca3af; margin:-4px 0 8px; }
+label.small{ font-size:12.5px; color:#6b7280; display:block; margin-bottom:4px; }
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script src="config.js"></script>
+<script>
+let currentSession = null;
+let currentIsAdmin = false;
+let activeTab = 'products';
+
+async function init(){
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  currentSession = session;
+  if(session){ await checkAdmin(); }
+  render();
+
+  supabaseClient.auth.onAuthStateChange(async (_e, session) => {
+    currentSession = session;
+    if(session){ await checkAdmin(); } else { currentIsAdmin = false; }
+    render();
+  });
+}
+
+async function checkAdmin(){
+  const email = currentSession?.user?.email;
+  if(!email){ currentIsAdmin=false; return; }
+  const { data } = await supabaseClient.from('admin_users').select('email').eq('email', email).maybeSingle();
+  currentIsAdmin = !!data;
+}
+
+function render(){
+  const app = document.getElementById('app');
+  if(!currentSession){ app.innerHTML = loginScreen(); attachLoginEvents(); return; }
+  if(!currentIsAdmin){
+    app.innerHTML = `<div class="center-screen"><div style="text-align:center"><p style="color:#ef4444;font-weight:700;">دسترسی غیرمجاز</p><p class="muted">این کاربر در فهرست مدیران سایت نیست.</p></div></div>`;
+    return;
+  }
+  app.innerHTML = adminShell();
+  loadTab(activeTab);
+}
+
+// ---------- LOGIN ----------
+function loginScreen(){
+  return `
+  <div class="center-screen login-bg">
+    <div class="login-card">
+      <h1>ورود به پنل مدیریت</h1>
+      <p class="sub">آرایشی بهداشتی بابک</p>
+      <input class="field" id="loginEmail" type="email" placeholder="ایمیل" dir="ltr" />
+      <input class="field" id="loginPass" type="password" placeholder="رمز عبور" dir="ltr" />
+      <p class="err-text" id="loginErr" style="display:none;"></p>
+      <button class="btn-main" id="loginBtn">ورود</button>
+    </div>
+  </div>`;
+}
+function attachLoginEvents(){
+  document.getElementById('loginBtn').onclick = async () => {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPass').value;
+    const errEl = document.getElementById('loginErr');
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true; btn.textContent = 'در حال ورود...';
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if(error){ errEl.textContent = 'ایمیل یا رمز عبور اشتباه است.'; errEl.style.display='block'; btn.disabled=false; btn.textContent='ورود'; }
+  };
+}
+
+// ---------- ADMIN SHELL ----------
+function adminShell(){
+  const tabs = [
+    ['products','🧴 محصولات'], ['categories','🗂️ دسته‌بندی‌ها'], ['orders','📦 سفارش‌ها'],
+    ['admins','👤 مدیران'], ['settings','⚙️ تنظیمات']
+  ];
+  return `
+    <div class="admin-header">
+      <b>پنل مدیریت بابک</b>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="email">${currentSession.user.email}</span>
+        <button class="btn-out" onclick="supabaseClient.auth.signOut()">خروج</button>
+      </div>
+    </div>
+    <div class="tabs">
+      ${tabs.map(([id,label])=>`<button class="tab-btn ${activeTab===id?'active':''}" onclick="switchTab('${id}')">${label}</button>`).join('')}
+    </div>
+    <div class="wrap" id="tabContent"></div>
+  `;
+}
+function switchTab(id){ activeTab = id; document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); loadTab(id); render(); }
+
+function loadTab(id){
+  if(id==='products') return renderProducts();
+  if(id==='categories') return renderCategories();
+  if(id==='orders') return renderOrders();
+  if(id==='admins') return renderAdmins();
+  if(id==='settings') return renderSettings();
+}
+
+// ---------- PRODUCTS ----------
+let editingProduct = null;
+let categoriesCache = [];
+
+async function renderProducts(){
+  const el = document.getElementById('tabContent');
+  el.innerHTML = `<h2 class="section-title">محصولات</h2>
+    <button class="btn-main" style="margin-bottom:12px;" onclick="openProductForm(null)">+ محصول جدید</button>
+    <div id="productFormWrap"></div>
+    <div id="productListWrap" class="muted">در حال بارگذاری...</div>`;
+
+  const [{data: prods}, {data: cats}] = await Promise.all([
+    supabaseClient.from('products').select('*').order('created_at',{ascending:false}),
+    supabaseClient.from('categories').select('*').order('created_at')
+  ]);
+  categoriesCache = cats || [];
+  const listEl = document.getElementById('productListWrap');
+  if(!prods || prods.length===0){ listEl.innerHTML = '<p class="muted">محصولی ثبت نشده.</p>'; return; }
+  listEl.innerHTML = prods.map(p => `
+    <div class="list-item">
+      ${p.image_url ? `<img src="${p.image_url}">` : `<div class="thumb-empty">💄</div>`}
+      <div style="flex:1; min-width:0;">
+        <p class="item-title">${p.name}</p>
+        <p class="item-sub">${Number(p.price).toLocaleString('fa-IR')} تومان${p.discount_price?` (تخفیف: ${Number(p.discount_price).toLocaleString('fa-IR')})`:''} · ${p.torob_link?'ترب فعال':'ترب غیرفعال'}</p>
+      </div>
+      <button class="link-btn link-purple" onclick='openProductForm(${JSON.stringify(p)})'>ویرایش</button>
+      <button class="link-btn link-red" onclick="deleteProduct('${p.id}')">حذف</button>
+    </div>`).join('');
+}
+
+function openProductForm(product){
+  editingProduct = product;
+  const catOptions = categoriesCache.map(c=>`<option value="${c.id}" ${product&&product.category_id===c.id?'selected':''}>${c.name}</option>`).join('');
+  document.getElementById('productFormWrap').innerHTML = `
+    <div class="card-white">
+      <input class="field" id="pfName" placeholder="نام محصول" value="${product?product.name.replace(/"/g,'&quot;'):''}" style="margin-bottom:8px;">
+      <textarea class="field" id="pfDesc" placeholder="توضیحات محصول" rows="3" style="margin-bottom:8px;">${product?product.description||'':''}</textarea>
+      <div class="row-flex" style="margin-bottom:8px;">
+        <input class="field" id="pfPrice" type="number" placeholder="قیمت (تومان)" value="${product?product.price:''}">
+        <input class="field" id="pfDiscount" type="number" placeholder="قیمت با تخفیف (اختیاری)" value="${product&&product.discount_price!=null?product.discount_price:''}">
+      </div>
+      <select class="field" id="pfCategory" style="margin-bottom:8px;">
+        <option value="">بدون دسته‌بندی</option>${catOptions}
+      </select>
+      <input class="field" id="pfTorob" placeholder="لینک خرید از ترب (خالی = دکمه غیرفعال)" dir="ltr" value="${product?product.torob_link||'':''}" style="margin-bottom:8px; text-align:left;">
+      <label class="small">تصویر محصول</label>
+      <input type="file" id="pfImage" accept="image/*" style="margin-bottom:10px;">
+      ${product&&product.image_url?`<img src="${product.image_url}" style="width:60px;height:60px;object-fit:cover;border-radius:10px;margin-bottom:10px;display:block;">`:''}
+      <p class="err-text" id="pfErr" style="display:none;"></p>
+      <div class="row-flex">
+        <button class="btn-main" style="flex:1;" id="pfSaveBtn" onclick="saveProduct()">ذخیره</button>
+        <button class="link-btn link-red" style="border:1px solid #fca5a5; border-radius:12px; padding:0 16px;" onclick="closeProductForm()">انصراف</button>
+      </div>
+    </div>`;
+}
+function closeProductForm(){ document.getElementById('productFormWrap').innerHTML=''; editingProduct=null; }
+
+async function saveProduct(){
+  const name = document.getElementById('pfName').value.trim();
+  const price = document.getElementById('pfPrice').value;
+  const errEl = document.getElementById('pfErr');
+  if(!name || !price){ errEl.textContent='نام و قیمت الزامی است.'; errEl.style.display='block'; return; }
+
+  const btn = document.getElementById('pfSaveBtn');
+  btn.disabled = true; btn.textContent='در حال ذخیره...';
+
+  let image_url = editingProduct ? editingProduct.image_url : null;
+  const file = document.getElementById('pfImage').files[0];
+  if(file){
+    const ext = file.name.split('.').pop();
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error: upErr } = await supabaseClient.storage.from('product-images').upload(path, file);
+    if(!upErr){
+      const { data } = supabaseClient.storage.from('product-images').getPublicUrl(path);
+      image_url = data.publicUrl;
+    }
+  }
+
+  const payload = {
+    name,
+    description: document.getElementById('pfDesc').value.trim(),
+    price: Number(price),
+    discount_price: document.getElementById('pfDiscount').value ? Number(document.getElementById('pfDiscount').value) : null,
+    category_id: document.getElementById('pfCategory').value || null,
+    torob_link: document.getElementById('pfTorob').value.trim() || null,
+    image_url
+  };
+
+  if(editingProduct){
+    await supabaseClient.from('products').update(payload).eq('id', editingProduct.id);
+  } else {
+    await supabaseClient.from('products').insert(payload);
+  }
+  closeProductForm();
+  renderProducts();
+}
+
+async function deleteProduct(id){
+  if(!confirm('این محصول حذف شود؟')) return;
+  await supabaseClient.from('products').delete().eq('id', id);
+  renderProducts();
+}
+
+// ---------- CATEGORIES ----------
+async function renderCategories(){
+  const el = document.getElementById('tabContent');
+  el.innerHTML = `<h2 class="section-title">دسته‌بندی‌ها</h2>
+    <div class="row-flex" style="margin-bottom:14px;">
+      <input class="field" id="catName" placeholder="نام دسته‌بندی جدید">
+      <button class="btn-main" style="padding:0 20px;" onclick="addCategory()">افزودن</button>
+    </div>
+    <div id="catListWrap" class="muted">در حال بارگذاری...</div>`;
+  loadCategoryList();
+}
+async function loadCategoryList(){
+  const { data } = await supabaseClient.from('categories').select('*').order('created_at');
+  const el = document.getElementById('catListWrap');
+  if(!data || data.length===0){ el.innerHTML='<p class="muted">دسته‌بندی‌ای ثبت نشده.</p>'; return; }
+  el.innerHTML = data.map(c=>`
+    <div class="list-item">
+      <div style="flex:1;"><p class="item-title">${c.name}</p></div>
+      <button class="link-btn link-red" onclick="deleteCategory('${c.id}')">حذف</button>
+    </div>`).join('');
+}
+async function addCategory(){
+  const input = document.getElementById('catName');
+  if(!input.value.trim()) return;
+  await supabaseClient.from('categories').insert({ name: input.value.trim() });
+  input.value='';
+  loadCategoryList();
+}
+async function deleteCategory(id){
+  if(!confirm('این دسته‌بندی حذف شود؟')) return;
+  await supabaseClient.from('categories').delete().eq('id', id);
+  loadCategoryList();
+}
+
+// ---------- ORDERS ----------
+async function renderOrders(){
+  const el = document.getElementById('tabContent');
+  el.innerHTML = `<h2 class="section-title">سفارش‌ها</h2><div id="ordersWrap" class="muted">در حال بارگذاری...</div>`;
+  const { data } = await supabaseClient.from('orders').select('*').order('created_at',{ascending:false});
+  const wrap = document.getElementById('ordersWrap');
+  if(!data || data.length===0){ wrap.innerHTML='<p class="muted">سفارشی ثبت نشده.</p>'; return; }
+  wrap.innerHTML = data.map(o=>`
+    <div class="card-white" style="margin-bottom:8px; padding:12px;">
+      <div style="display:flex; justify-content:space-between;">
+        <b style="font-size:13.5px;">${o.customer_name}</b>
+        <button class="link-btn link-red" onclick="deleteOrder('${o.id}')">حذف</button>
+      </div>
+      <p class="item-sub">محصول: ${o.product_name||'—'} · تعداد: ${o.quantity}</p>
+      <p class="item-sub" dir="ltr">${o.phone}</p>
+      ${o.address?`<p class="item-sub">${o.address}</p>`:''}
+    </div>`).join('');
+}
+async function deleteOrder(id){
+  if(!confirm('این سفارش حذف شود؟')) return;
+  await supabaseClient.from('orders').delete().eq('id', id);
+  renderOrders();
+}
+
+// ---------- ADMINS ----------
+async function renderAdmins(){
+  const el = document.getElementById('tabContent');
+  el.innerHTML = `<h2 class="section-title">مدیریت دسترسی ادمین‌ها</h2>
+    <p class="hint">کاربر باید ابتدا از بخش Authentication در Supabase ساخته شده باشد، سپس ایمیلش اینجا اضافه شود.</p>
+    <div class="row-flex" style="margin-bottom:14px;">
+      <input class="field" id="adminEmail" placeholder="ایمیل کاربر" dir="ltr" style="text-align:left;">
+      <button class="btn-main" style="padding:0 20px;" onclick="addAdmin()">افزودن</button>
+    </div>
+    <p class="err-text" id="adminErr" style="display:none;"></p>
+    <div id="adminListWrap" class="muted">در حال بارگذاری...</div>`;
+  loadAdminList();
+}
+async function loadAdminList(){
+  const { data } = await supabaseClient.from('admin_users').select('*').order('created_at');
+  const el = document.getElementById('adminListWrap');
+  if(!data || data.length===0){ el.innerHTML='<p class="muted">مدیری ثبت نشده.</p>'; return; }
+  el.innerHTML = data.map(a=>`
+    <div class="list-item">
+      <div style="flex:1;"><p class="item-title" dir="ltr">${a.email}</p></div>
+      <button class="link-btn link-red" onclick="removeAdmin('${a.id}','${a.email}')">حذف دسترسی</button>
+    </div>`).join('');
+}
+async function addAdmin(){
+  const input = document.getElementById('adminEmail');
+  const errEl = document.getElementById('adminErr');
+  errEl.style.display='none';
+  if(!input.value.trim()) return;
+  const { error } = await supabaseClient.from('admin_users').insert({ email: input.value.trim().toLowerCase() });
+  if(error){ errEl.textContent='این ایمیل قبلاً اضافه شده یا خطایی رخ داد.'; errEl.style.display='block'; return; }
+  input.value='';
+  loadAdminList();
+}
+async function removeAdmin(id, email){
+  if(email === currentSession.user.email){ alert('نمی‌توانید دسترسی خودتان را حذف کنید.'); return; }
+  if(!confirm('دسترسی این مدیر حذف شود؟')) return;
+  await supabaseClient.from('admin_users').delete().eq('id', id);
+  loadAdminList();
+}
+
+// ---------- SETTINGS ----------
+async function renderSettings(){
+  const el = document.getElementById('tabContent');
+  el.innerHTML = `<h2 class="section-title">تنظیمات سایت</h2><div id="settingsWrap" class="muted">در حال بارگذاری...</div>`;
+  const { data } = await supabaseClient.from('site_settings').select('*').eq('id',1).maybeSingle();
+  const s = data || { about_text:'', complaint_email:'', footer_text:'' };
+  document.getElementById('settingsWrap').innerHTML = `
+    <div class="card-white">
+      <label class="small">متن «درباره ما»</label>
+      <textarea class="field" id="stAbout" rows="5" style="margin-bottom:12px;">${s.about_text||''}</textarea>
+      <label class="small">ایمیل دریافت شکایات و پیشنهادات</label>
+      <input class="field" id="stEmail" dir="ltr" style="text-align:left; margin-bottom:12px;" value="${s.complaint_email||''}" placeholder="example@gmail.com">
+      <label class="small">متن پایین سایت (فوتر)</label>
+      <input class="field" id="stFooter" style="margin-bottom:12px;" value="${s.footer_text||''}">
+      <button class="btn-main" id="stSaveBtn" onclick="saveSettings()">ذخیره تغییرات</button>
+    </div>`;
+}
+async function saveSettings(){
+  const btn = document.getElementById('stSaveBtn');
+  btn.disabled=true; btn.textContent='در حال ذخیره...';
+  await supabaseClient.from('site_settings').update({
+    about_text: document.getElementById('stAbout').value,
+    complaint_email: document.getElementById('stEmail').value.trim(),
+    footer_text: document.getElementById('stFooter').value
+  }).eq('id',1);
+  btn.disabled=false; btn.textContent='✓ ذخیره شد';
+  setTimeout(()=>{ btn.textContent='ذخیره تغییرات'; }, 2000);
+}
+
+init();
+</script>
+</body>
+</html>
