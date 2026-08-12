@@ -59,6 +59,33 @@ input, textarea, select { font-family: inherit; }
 .entrance { animation: fadeUp .6s ease-out both; }
 @keyframes fadeUp { from{opacity:0; transform:translateY(20px);} to{opacity:1; transform:translateY(0);} }
 
+.header-logo { height:34px; width:34px; border-radius:50%; object-fit:cover; box-shadow:0 0 0 2px rgba(255,255,255,.5); }
+.header-inner .title-group { display:flex; align-items:center; gap:8px; }
+
+.splash {
+  position: fixed; inset:0; z-index:200;
+  background: linear-gradient(135deg,#7c3aed,#ec4899,#f472b6,#a855f7);
+  background-size: 300% 300%;
+  animation: splashGradient 4s ease infinite;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px;
+  animation-fill-mode: forwards;
+}
+@keyframes splashGradient { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+.splash img {
+  width:120px; height:120px; border-radius:50%; object-fit:cover;
+  box-shadow: 0 0 0 6px rgba(255,255,255,.35), 0 10px 40px rgba(0,0,0,.3);
+  animation: splashLogoIn 1s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes splashLogoIn { from{ opacity:0; transform:scale(.4) rotate(-15deg); } to{ opacity:1; transform:scale(1) rotate(0); } }
+.splash .splash-title {
+  color:#fff; font-weight:800; font-size:19px; opacity:0; text-shadow:0 2px 8px rgba(0,0,0,.25);
+  animation: splashTextIn .7s ease-out .5s forwards;
+}
+@keyframes splashTextIn { from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:translateY(0);} }
+.splash.hide { animation: splashOut .5s ease-in forwards; pointer-events:none; }
+@keyframes splashOut { from{opacity:1;} to{opacity:0;} }
+body.splash-active { overflow:hidden; }
+
 .container { max-width: 1000px; margin: 0 auto; padding: 20px 16px 40px; }
 
 .chips { display:flex; gap:8px; overflow-x:auto; padding-bottom:14px; }

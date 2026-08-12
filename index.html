@@ -4,17 +4,26 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>آرایشی بهداشتی بابک</title>
+<link rel="icon" type="image/png" href="assets/favicon.png" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
+<body class="splash-active">
+
+<div class="splash" id="splashScreen">
+  <img src="assets/logo.png" alt="آرایشی بهداشتی بابک" />
+  <span class="splash-title">آرایشی بهداشتی بابک</span>
+</div>
 
 <header class="header">
   <div class="header-inner">
     <button class="burger-btn" onclick="openDrawer()">☰</button>
-    <a href="index.html" class="site-title">آرایشی بهداشتی بابک</a>
+    <a href="index.html" class="title-group">
+      <img src="assets/logo.png" class="header-logo" alt="لوگو" />
+      <span class="site-title">آرایشی بهداشتی بابک</span>
+    </a>
     <span style="width:28px"></span>
   </div>
 </header>
@@ -193,7 +202,16 @@ async function submitOrder(productId, productName){
     </div>`;
 }
 
+function hideSplash(){
+  const splash = document.getElementById('splashScreen');
+  if(!splash) return;
+  splash.classList.add('hide');
+  document.body.classList.remove('splash-active');
+  setTimeout(()=>{ splash.remove(); }, 550);
+}
+
 loadEverything();
+setTimeout(hideSplash, 1300);
 </script>
 </body>
 </html>
