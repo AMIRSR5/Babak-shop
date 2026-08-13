@@ -16,8 +16,11 @@
   <div class="header-inner">
     <button class="burger-btn" onclick="openDrawer()">☰</button>
     <a href="index.html" class="title-group">
-      <img src="assets/logo.png" class="header-logo" alt="لوگو" />
-      <span class="site-title">آرایشی بهداشتی بابک</span>
+      <img src="assets/logo.png" class="header-logo" alt="لوگو" onerror="this.style.display='none'" />
+      <span class="title-col">
+        <span class="site-title">آرایشی بهداشتی بابک</span>
+        <span class="site-tagline">Là Lune 🌛</span>
+      </span>
     </a>
     <span style="width:28px"></span>
   </div>
@@ -43,6 +46,8 @@
   <p>در حال بارگذاری...</p>
 </div>
 
+<div class="location-box entrance" id="locationBox"></div>
+
 <footer class="footer" id="footerArea">
   <p class="brand">آرایشی بهداشتی بابک</p>
 </footer>
@@ -65,12 +70,30 @@ async function loadAbout(){
   const s = settings || {};
   document.getElementById('aboutBox').innerHTML = `<h1>درباره ما</h1><p>${s.about_text || 'به زودی متن درباره ما تکمیل می‌شود.'}</p>`;
 
-  const footerText = s.footer_text || 'کلیه حقوق سایت آرایشی بهداشتی بابک محفوظ است. ساخته شده توسط امیرحسین سرافراز';
+  const locBox = document.getElementById('locationBox');
+  if(s.location_link){
+    locBox.innerHTML = `
+      <div class="row-flex">
+        <a class="map-link-btn" href="${s.location_link}" target="_blank" rel="noopener">📍 مشاهده لوکیشن فروشگاه</a>
+      </div>`;
+  } else {
+    locBox.innerHTML = '';
+  }
+
+  let footerText = s.footer_text || 'کلیه حقوق سایت آرایشی بهداشتی بابک محفوظ است.';
+  footerText = footerText.replace(/[.·\s]*ساخته شده توسط امیرحسین سرافراز[.\s]*/g, '').trim();
   const complaintEmail = s.complaint_email || '';
+  const instagramLink = s.instagram_link || '';
+  const rubikaUsername = s.rubika_username || 'Lalune1999';
   document.getElementById('footerArea').innerHTML = `
     <p class="brand">آرایشی بهداشتی بابک</p>
+    <div class="social-row">
+      ${instagramLink ? `<a class="social-btn" href="${instagramLink}" target="_blank" rel="noopener">📸 اینستاگرام</a>` : ''}
+      <a class="social-btn" href="https://rubika.ir/${rubikaUsername}" target="_blank" rel="noopener">💬 روبیکا</a>
+    </div>
     ${complaintEmail ? `<a class="complaint-btn" href="mailto:${complaintEmail}?subject=${encodeURIComponent('شکایات و پیشنهادات')}">✉️ ثبت شکایات و پیشنهادات</a>` : ''}
     <p class="footer-text">${footerText}</p>
+    <p class="footer-text" style="opacity:.75;">ساخته شده توسط امیرحسین سرافراز</p>
   `;
 }
 loadAbout();

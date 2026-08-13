@@ -96,7 +96,7 @@ function loginScreen(){
   return `
   <div class="center-screen login-bg">
     <div class="login-card">
-      <img src="assets/logo.png" alt="لوگو" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin:0 auto 4px;display:block;box-shadow:0 4px 14px rgba(0,0,0,.15);">
+      <img src="assets/logo.png" alt="لوگو" onerror="this.style.display='none'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin:0 auto 4px;display:block;box-shadow:0 4px 14px rgba(0,0,0,.15);">
       <h1>ورود به پنل مدیریت</h1>
       <p class="sub">آرایشی بهداشتی بابک</p>
       <input class="field" id="loginEmail" type="email" placeholder="ایمیل" dir="ltr" />
@@ -292,16 +292,30 @@ async function renderOrders(){
   const { data } = await supabaseClient.from('orders').select('*').order('created_at',{ascending:false});
   const wrap = document.getElementById('ordersWrap');
   if(!data || data.length===0){ wrap.innerHTML='<p class="muted">سفارشی ثبت نشده.</p>'; return; }
-  wrap.innerHTML = data.map(o=>`
+  wrap.innerHTML = data.map(o=>{
+    const isConfirmed = o.status === 'confirmed';
+    return `
     <div class="card-white" style="margin-bottom:8px; padding:12px;">
-      <div style="display:flex; justify-content:space-between;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <b style="font-size:13.5px;">${o.customer_name}</b>
         <button class="link-btn link-red" onclick="deleteOrder('${o.id}')">حذف</button>
       </div>
+      <span class="order-status ${isConfirmed?'confirmed':'pending'}">${isConfirmed?'✅ تایید شده':'⏳ منتظر تایید فروشنده'}</span>
+      ${o.order_code?`<p class="item-sub" style="color:#db2777;font-weight:700;" dir="ltr">${o.order_code}</p>`:''}
       <p class="item-sub">محصول: ${o.product_name||'—'} · تعداد: ${o.quantity}</p>
-      <p class="item-sub" dir="ltr">${o.phone}</p>
-      ${o.address?`<p class="item-sub">${o.address}</p>`:''}
-    </div>`).join('');
+      <p class="item-sub" dir="ltr">${o.phone||''}</p>
+      <p class="item-sub">${[o.province,o.city].filter(Boolean).join(' - ')}</p>
+      <p class="item-sub">${o.address||''}${o.plate?` · پلاک ${o.plate}`:''}${o.unit?` · واحد ${o.unit}`:''}</p>
+      ${o.postal_code?`<p class="item-sub" dir="ltr">کد پستی: ${o.postal_code}</p>`:''}
+      <button class="link-btn ${isConfirmed?'link-red':'link-purple'}" style="margin-top:6px;" onclick="toggleOrderStatus('${o.id}','${isConfirmed?'pending':'confirmed'}')">
+        ${isConfirmed?'برگرداندن به حالت انتظار':'✔️ تایید سفارش'}
+      </button>
+    </div>`;
+  }).join('');
+}
+async function toggleOrderStatus(id, newStatus){
+  await supabaseClient.from('orders').update({ status: newStatus }).eq('id', id);
+  renderOrders();
 }
 async function deleteOrder(id){
   if(!confirm('این سفارش حذف شود؟')) return;
@@ -354,7 +368,8 @@ async function renderSettings(){
   const el = document.getElementById('tabContent');
   el.innerHTML = `<h2 class="section-title">تنظیمات سایت</h2><div id="settingsWrap" class="muted">در حال بارگذاری...</div>`;
   const { data } = await supabaseClient.from('site_settings').select('*').eq('id',1).maybeSingle();
-  const s = data || { about_text:'', complaint_email:'', footer_text:'' };
+  const s = data || { about_text:'', complaint_email:'', footer_text:'', instagram_link:'', rubika_username:'', location_link:'' };
+  const cleanFooter = (s.footer_text||'').replace(/[.·\s]*ساخته شده توسط امیرحسین سرافراز[.\s]*/g,'').trim();
   document.getElementById('settingsWrap').innerHTML = `
     <div class="card-white">
       <label class="small">متن «درباره ما»</label>
@@ -362,7 +377,19 @@ async function renderSettings(){
       <label class="small">ایمیل دریافت شکایات و پیشنهادات</label>
       <input class="field" id="stEmail" dir="ltr" style="text-align:left; margin-bottom:12px;" value="${s.complaint_email||''}" placeholder="example@gmail.com">
       <label class="small">متن پایین سایت (فوتر)</label>
-      <input class="field" id="stFooter" style="margin-bottom:12px;" value="${s.footer_text||''}">
+      <input class="field" id="stFooter" style="margin-bottom:6px;" value="${cleanFooter}">
+      <p class="hint" style="margin-bottom:12px;">خط «ساخته شده توسط امیرحسین سرافراز» همیشه به‌صورت ثابت پایین سایت نمایش داده می‌شود و قابل حذف یا ویرایش از این پنل نیست.</p>
+
+      <label class="small">آیدی روبیکا (بدون @ و بدون لینک کامل)</label>
+      <input class="field" id="stRubika" dir="ltr" style="text-align:left; margin-bottom:4px;" value="${s.rubika_username||''}" placeholder="Lalune1999">
+      <p class="hint" style="margin-bottom:12px;">همین آیدی برای دکمه «پرداخت و تایید سفارش» و دکمه روبیکا پایین سایت استفاده می‌شود.</p>
+
+      <label class="small">لینک پیج اینستاگرام</label>
+      <input class="field" id="stInstagram" dir="ltr" style="text-align:left; margin-bottom:12px;" value="${s.instagram_link||''}" placeholder="https://www.instagram.com/username">
+
+      <label class="small">لینک لوکیشن فروشگاه (نشان، گوگل مپ یا هر لینک دیگر)</label>
+      <input class="field" id="stLocation" dir="ltr" style="text-align:left; margin-bottom:12px;" value="${s.location_link||''}" placeholder="https://...">
+
       <button class="btn-main" id="stSaveBtn" onclick="saveSettings()">ذخیره تغییرات</button>
     </div>`;
 }
@@ -372,7 +399,10 @@ async function saveSettings(){
   await supabaseClient.from('site_settings').update({
     about_text: document.getElementById('stAbout').value,
     complaint_email: document.getElementById('stEmail').value.trim(),
-    footer_text: document.getElementById('stFooter').value
+    rubika_username: document.getElementById('stRubika').value.trim().replace(/^@/,''),
+    instagram_link: document.getElementById('stInstagram').value.trim(),
+    location_link: document.getElementById('stLocation').value.trim(),
+    footer_text: document.getElementById('stFooter').value.trim()
   }).eq('id',1);
   btn.disabled=false; btn.textContent='✓ ذخیره شد';
   setTimeout(()=>{ btn.textContent='ذخیره تغییرات'; }, 2000);

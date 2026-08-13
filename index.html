@@ -13,16 +13,20 @@
 <body class="splash-active">
 
 <div class="splash" id="splashScreen">
-  <img src="assets/logo.png" alt="آرایشی بهداشتی بابک" />
+  <img src="assets/logo.png" alt="آرایشی بهداشتی بابک" onerror="this.style.display='none'" />
   <span class="splash-title">آرایشی بهداشتی بابک</span>
+  <span class="splash-tagline">Là Lune 🌛</span>
 </div>
 
 <header class="header">
   <div class="header-inner">
     <button class="burger-btn" onclick="openDrawer()">☰</button>
     <a href="index.html" class="title-group">
-      <img src="assets/logo.png" class="header-logo" alt="لوگو" />
-      <span class="site-title">آرایشی بهداشتی بابک</span>
+      <img src="assets/logo.png" class="header-logo" alt="لوگو" onerror="this.style.display='none'" />
+      <span class="title-col">
+        <span class="site-title">آرایشی بهداشتی بابک</span>
+        <span class="site-tagline">Là Lune 🌛</span>
+      </span>
     </a>
     <span style="width:28px"></span>
   </div>
@@ -64,6 +68,7 @@
 let allProducts = [];
 let categories = [];
 let activeCategory = null;
+let siteSettings = {};
 
 function openDrawer(){ document.getElementById('drawer').classList.add('open'); document.getElementById('drawerOverlay').classList.add('open'); document.body.style.overflow='hidden'; }
 function closeDrawer(){ document.getElementById('drawer').classList.remove('open'); document.getElementById('drawerOverlay').classList.remove('open'); document.body.style.overflow=''; }
@@ -79,10 +84,11 @@ async function loadEverything(){
   ]);
   categories = cats || [];
   allProducts = prods || [];
+  siteSettings = settings || {};
   renderDrawerCats();
   renderChips();
   renderProducts();
-  renderFooter(settings);
+  renderFooter(siteSettings);
 }
 
 function renderDrawerCats(){
@@ -139,12 +145,20 @@ function productCard(p){
 
 function renderFooter(settings){
   const s = settings || {};
-  const footerText = s.footer_text || 'کلیه حقوق سایت آرایشی بهداشتی بابک محفوظ است. ساخته شده توسط امیرحسین سرافراز';
+  let footerText = s.footer_text || 'کلیه حقوق سایت آرایشی بهداشتی بابک محفوظ است.';
+  footerText = footerText.replace(/[.·\s]*ساخته شده توسط امیرحسین سرافراز[.\s]*/g, '').trim();
   const complaintEmail = s.complaint_email || '';
+  const instagramLink = s.instagram_link || '';
+  const rubikaUsername = s.rubika_username || 'Lalune1999';
   document.getElementById('footerArea').innerHTML = `
     <p class="brand">آرایشی بهداشتی بابک</p>
+    <div class="social-row">
+      ${instagramLink ? `<a class="social-btn" href="${instagramLink}" target="_blank" rel="noopener">📸 اینستاگرام</a>` : ''}
+      <a class="social-btn" href="https://rubika.ir/${rubikaUsername}" target="_blank" rel="noopener">💬 روبیکا</a>
+    </div>
     ${complaintEmail ? `<a class="complaint-btn" href="mailto:${complaintEmail}?subject=${encodeURIComponent('شکایات و پیشنهادات')}">✉️ ثبت شکایات و پیشنهادات</a>` : ''}
     <p class="footer-text">${footerText}</p>
+    <p class="footer-text" style="opacity:.75;">ساخته شده توسط امیرحسین سرافراز</p>
   `;
 }
 
@@ -157,9 +171,18 @@ function openOrderModal(productId, productName){
           <button class="modal-close" onclick="closeOrderModal()">×</button>
         </div>
         <div id="orderFormArea">
-          <input class="field" id="ordName" placeholder="نام و نام خانوادگی" />
-          <input class="field" id="ordPhone" placeholder="شماره تماس" inputmode="numeric" />
-          <textarea class="field" id="ordAddress" placeholder="آدرس (اختیاری)" rows="2"></textarea>
+          <input class="field" id="ordName" placeholder="نام و نام خانوادگی *" />
+          <input class="field" id="ordPhone" placeholder="شماره تماس *" inputmode="numeric" />
+          <div class="row-flex-2">
+            <input class="field" id="ordProvince" placeholder="استان *" />
+            <input class="field" id="ordCity" placeholder="شهر *" />
+          </div>
+          <textarea class="field" id="ordAddress" placeholder="آدرس کامل *" rows="2"></textarea>
+          <div class="row-flex-2">
+            <input class="field" id="ordPlate" placeholder="پلاک *" />
+            <input class="field" id="ordUnit" placeholder="واحد *" />
+          </div>
+          <input class="field" id="ordPostal" placeholder="کد پستی *" inputmode="numeric" />
           <div class="qty-row">تعداد <input class="field" style="margin:0" type="number" min="1" value="1" id="ordQty"></div>
           <p class="err-text" id="ordErr" style="display:none;"></p>
           <button class="submit-btn" id="ordSubmitBtn" onclick="submitOrder('${productId}', '${productName.replace(/'/g,"\\'")}')">ثبت نهایی سفارش</button>
@@ -170,20 +193,37 @@ function openOrderModal(productId, productName){
 
 function closeOrderModal(){ document.getElementById('modalArea').innerHTML = ''; }
 
+function makeOrderCode(){
+  return 'BB-' + Math.random().toString(36).slice(2,8).toUpperCase();
+}
+
 async function submitOrder(productId, productName){
   const name = document.getElementById('ordName').value.trim();
   const phone = document.getElementById('ordPhone').value.trim();
+  const province = document.getElementById('ordProvince').value.trim();
+  const city = document.getElementById('ordCity').value.trim();
   const address = document.getElementById('ordAddress').value.trim();
+  const plate = document.getElementById('ordPlate').value.trim();
+  const unit = document.getElementById('ordUnit').value.trim();
+  const postal_code = document.getElementById('ordPostal').value.trim();
   const quantity = Math.max(1, Number(document.getElementById('ordQty').value) || 1);
   const errEl = document.getElementById('ordErr');
-  if(!name || !phone){ errEl.textContent = 'نام و شماره تماس الزامی است.'; errEl.style.display='block'; return; }
+
+  if(!name || !phone || !province || !city || !address || !plate || !unit || !postal_code){
+    errEl.textContent = 'پر کردن همه فیلدهای ستاره‌دار الزامی است.';
+    errEl.style.display='block';
+    return;
+  }
 
   const btn = document.getElementById('ordSubmitBtn');
   btn.disabled = true; btn.textContent = 'در حال ثبت...';
 
+  const order_code = makeOrderCode();
+
   const { error } = await supabaseClient.from('orders').insert({
     product_id: productId, product_name: productName,
-    customer_name: name, phone, address, quantity
+    customer_name: name, phone, province, city, address, plate, unit, postal_code,
+    quantity, order_code, status: 'pending'
   });
 
   if(error){
@@ -197,9 +237,22 @@ async function submitOrder(productId, productName){
     <div class="success-box">
       <div style="font-size:38px;">✅</div>
       <p style="font-weight:800;color:#7c3aed;">سفارش شما ثبت شد</p>
-      <p style="font-size:13px;color:#9ca3af;">به‌زودی با شما تماس گرفته می‌شود.</p>
-      <button class="submit-btn" onclick="closeOrderModal()">متوجه شدم</button>
+      <div class="order-code-box">
+        <span>کد سفارش شما</span>
+        <b dir="ltr">${order_code}</b>
+      </div>
+      <span class="order-status pending">⏳ منتظر تایید فروشنده</span>
+      <button class="submit-btn" style="background:#0088cc;" onclick="confirmOnRubika('${order_code}')">پرداخت و تایید سفارش</button>
+      <p style="font-size:11px;color:#9ca3af;margin-top:8px;">با کلیک روی دکمه بالا، کد سفارش کپی می‌شود و چت روبیکا برای هماهنگی پرداخت باز می‌شود. پس از پرداخت، فروشنده سفارش شما را تایید می‌کند.</p>
+      <button class="submit-btn" style="background:#9ca3af; margin-top:8px;" onclick="closeOrderModal()">متوجه شدم</button>
     </div>`;
+}
+
+function confirmOnRubika(orderCode){
+  const text = `کد سفارش من: ${orderCode}`;
+  if(navigator.clipboard){ navigator.clipboard.writeText(text).catch(()=>{}); }
+  const username = siteSettings.rubika_username || 'Lalune1999';
+  window.open(`https://rubika.ir/${username}`, '_blank');
 }
 
 function hideSplash(){
