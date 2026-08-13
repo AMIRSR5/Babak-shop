@@ -23,6 +23,14 @@ input,textarea,select{ font-family:inherit; }
 .btn-main{ border-radius:12px; padding:12px; font-weight:700; color:#fff; background:linear-gradient(90deg,#ec4899,#9333ea); font-size:14px; }
 .btn-main:disabled{ opacity:.5; }
 .err-text{ color:#ef4444; font-size:13px; text-align:center; margin:0; }
+.btn-google{
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  border:1px solid #e5e7eb; border-radius:12px; padding:11px; font-size:13.5px; font-weight:700; color:#374151; background:#fff;
+}
+.btn-google:active{ background:#f9fafb; }
+.or-divider{ display:flex; align-items:center; gap:10px; color:#9ca3af; font-size:12px; margin:2px 0; }
+.or-divider::before, .or-divider::after{ content:''; flex:1; height:1px; background:#e5e7eb; }
+.link-switch{ background:none; color:#7c3aed; font-size:12.5px; font-weight:600; text-align:center; padding:4px; margin-top:4px; }
 
 .admin-header{ background:linear-gradient(90deg,#9333ea,#ec4899,#7c3aed); color:#fff; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; }
 .admin-header b{ font-size:15px; }
@@ -32,6 +40,7 @@ input,textarea,select{ font-family:inherit; }
 .tabs{ background:#fff; border-bottom:1px solid #e5e7eb; display:flex; overflow-x:auto; position:sticky; top:0; z-index:5; }
 .tab-btn{ flex-shrink:0; background:none; padding:12px 16px; font-size:13px; font-weight:700; color:#6b7280; border-bottom:2px solid transparent; }
 .tab-btn.active{ color:#db2777; border-color:#ec4899; }
+#pendingBadge{ color:#ef4444; font-weight:800; }
 
 .wrap{ max-width:760px; margin:0 auto; padding:16px; }
 .section-title{ color:#7c3aed; font-weight:800; margin:0 0 12px; }
@@ -59,6 +68,8 @@ label.small{ font-size:12.5px; color:#6b7280; display:block; margin-bottom:4px; 
 let currentSession = null;
 let currentIsAdmin = false;
 let activeTab = 'products';
+let authMode = 'login'; // 'login' | 'signup' | 'verify'
+let pendingSignupEmail = '';
 
 async function init(){
   const { data: { session } } = await supabaseClient.auth.getSession();
@@ -68,7 +79,7 @@ async function init(){
 
   supabaseClient.auth.onAuthStateChange(async (_e, session) => {
     currentSession = session;
-    if(session){ await checkAdmin(); } else { currentIsAdmin = false; }
+    if(session){ authMode = 'login'; await checkAdmin(); } else { currentIsAdmin = false; }
     render();
   });
 }
@@ -84,29 +95,79 @@ function render(){
   const app = document.getElementById('app');
   if(!currentSession){ app.innerHTML = loginScreen(); attachLoginEvents(); return; }
   if(!currentIsAdmin){
-    app.innerHTML = `<div class="center-screen"><div style="text-align:center"><p style="color:#ef4444;font-weight:700;">دسترسی غیرمجاز</p><p class="muted">این کاربر در فهرست مدیران سایت نیست.</p></div></div>`;
+    app.innerHTML = `<div class="center-screen"><div style="text-align:center"><p style="color:#ef4444;font-weight:700;">دسترسی غیرمجاز</p><p class="muted">این کاربر در فهرست مدیران سایت نیست.</p><button class="btn-out" style="margin-top:14px;color:#7c3aed;background:#fdf2f8;" onclick="supabaseClient.auth.signOut()">خروج</button></div></div>`;
     return;
   }
   app.innerHTML = adminShell();
   loadTab(activeTab);
+  refreshPendingBadge();
 }
 
 // ---------- LOGIN ----------
 function loginScreen(){
+  if(authMode==='signup') return signupScreenHtml();
+  if(authMode==='verify') return verifyScreenHtml();
   return `
   <div class="center-screen login-bg">
     <div class="login-card">
       <img src="logo.png" alt="لوگو" onerror="this.style.display='none'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin:0 auto 4px;display:block;box-shadow:0 4px 14px rgba(0,0,0,.15);">
       <h1>ورود به پنل مدیریت</h1>
       <p class="sub">آرایشی بهداشتی بابک</p>
+
+      <button class="btn-google" id="googleBtn">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.94v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.94A9 9 0 0 0 0 9c0 1.45.35 2.83.94 4.03l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .94 4.97l3.01 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+        ورود با حساب گوگل
+      </button>
+      <div class="or-divider"><span>یا</span></div>
+
       <input class="field" id="loginEmail" type="email" placeholder="ایمیل" dir="ltr" />
       <input class="field" id="loginPass" type="password" placeholder="رمز عبور" dir="ltr" />
       <p class="err-text" id="loginErr" style="display:none;"></p>
       <button class="btn-main" id="loginBtn">ورود</button>
+      <button class="link-switch" id="toSignupBtn">حساب ندارید؟ ثبت‌نام کنید</button>
     </div>
   </div>`;
 }
+
+function signupScreenHtml(){
+  return `
+  <div class="center-screen login-bg">
+    <div class="login-card">
+      <img src="logo.png" alt="لوگو" onerror="this.style.display='none'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin:0 auto 4px;display:block;box-shadow:0 4px 14px rgba(0,0,0,.15);">
+      <h1>ساخت حساب جدید</h1>
+      <p class="sub">بعد از ثبت‌نام، یک کد تایید به ایمیلتان ارسال می‌شود</p>
+      <input class="field" id="suEmail" type="email" placeholder="ایمیل" dir="ltr" />
+      <input class="field" id="suPass" type="password" placeholder="رمز عبور (حداقل ۶ کاراکتر)" dir="ltr" />
+      <p class="err-text" id="suErr" style="display:none;"></p>
+      <button class="btn-main" id="suBtn">ثبت‌نام و ارسال کد تایید</button>
+      <button class="link-switch" id="toLoginBtn">قبلاً حساب دارید؟ ورود</button>
+    </div>
+  </div>`;
+}
+
+function verifyScreenHtml(){
+  return `
+  <div class="center-screen login-bg">
+    <div class="login-card">
+      <h1>تایید ایمیل</h1>
+      <p class="sub">کد ارسال‌شده به ${pendingSignupEmail} را وارد کنید</p>
+      <input class="field" id="otpCode" placeholder="کد تایید" inputmode="numeric" dir="ltr" style="text-align:center; letter-spacing:4px; font-size:18px;" />
+      <p class="err-text" id="otpErr" style="display:none;"></p>
+      <button class="btn-main" id="otpBtn">تایید کد</button>
+      <button class="link-switch" id="backToSignup">بازگشت</button>
+    </div>
+  </div>`;
+}
+
 function attachLoginEvents(){
+  if(authMode==='signup') return attachSignupEvents();
+  if(authMode==='verify') return attachVerifyEvents();
+
+  document.getElementById('googleBtn').onclick = async () => {
+    await supabaseClient.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: window.location.href.split('?')[0] } });
+  };
+  document.getElementById('toSignupBtn').onclick = () => { authMode='signup'; render(); };
+
   document.getElementById('loginBtn').onclick = async () => {
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPass').value;
@@ -118,11 +179,46 @@ function attachLoginEvents(){
   };
 }
 
+function attachSignupEvents(){
+  document.getElementById('toLoginBtn').onclick = () => { authMode='login'; render(); };
+  document.getElementById('suBtn').onclick = async () => {
+    const email = document.getElementById('suEmail').value.trim();
+    const password = document.getElementById('suPass').value;
+    const errEl = document.getElementById('suErr');
+    errEl.style.display='none';
+    if(!email || password.length<6){ errEl.textContent='ایمیل و رمز حداقل ۶ کاراکتری لازم است.'; errEl.style.display='block'; return; }
+    const btn = document.getElementById('suBtn');
+    btn.disabled=true; btn.textContent='در حال ارسال...';
+    const { error } = await supabaseClient.auth.signUp({ email, password });
+    btn.disabled=false; btn.textContent='ثبت‌نام و ارسال کد تایید';
+    if(error){ errEl.textContent = error.message && error.message.includes('already') ? 'این ایمیل قبلاً ثبت شده است.' : 'خطا در ثبت‌نام.'; errEl.style.display='block'; return; }
+    pendingSignupEmail = email;
+    authMode = 'verify';
+    render();
+  };
+}
+
+function attachVerifyEvents(){
+  document.getElementById('backToSignup').onclick = () => { authMode='signup'; render(); };
+  document.getElementById('otpBtn').onclick = async () => {
+    const token = document.getElementById('otpCode').value.trim();
+    const errEl = document.getElementById('otpErr');
+    errEl.style.display='none';
+    if(!token){ errEl.textContent='کد تایید را وارد کنید.'; errEl.style.display='block'; return; }
+    const btn = document.getElementById('otpBtn');
+    btn.disabled=true; btn.textContent='در حال بررسی...';
+    const { error } = await supabaseClient.auth.verifyOtp({ email: pendingSignupEmail, token, type:'signup' });
+    btn.disabled=false; btn.textContent='تایید کد';
+    if(error){ errEl.textContent='کد وارد شده نادرست یا منقضی شده است.'; errEl.style.display='block'; return; }
+    // success — onAuthStateChange fires automatically and re-renders
+  };
+}
+
 // ---------- ADMIN SHELL ----------
 function adminShell(){
   const tabs = [
     ['products','🧴 محصولات'], ['categories','🗂️ دسته‌بندی‌ها'], ['orders','📦 سفارش‌ها'],
-    ['admins','👤 مدیران'], ['settings','⚙️ تنظیمات']
+    ['comments','💬 نظرات'], ['admins','👤 مدیران'], ['settings','⚙️ تنظیمات']
   ];
   return `
     <div class="admin-header">
@@ -133,7 +229,7 @@ function adminShell(){
       </div>
     </div>
     <div class="tabs">
-      ${tabs.map(([id,label])=>`<button class="tab-btn ${activeTab===id?'active':''}" onclick="switchTab('${id}')">${label}</button>`).join('')}
+      ${tabs.map(([id,label])=>`<button class="tab-btn ${activeTab===id?'active':''}" onclick="switchTab('${id}')">${label}${id==='comments'?'<span id="pendingBadge"></span>':''}</button>`).join('')}
     </div>
     <div class="wrap" id="tabContent"></div>
   `;
@@ -144,8 +240,16 @@ function loadTab(id){
   if(id==='products') return renderProducts();
   if(id==='categories') return renderCategories();
   if(id==='orders') return renderOrders();
+  if(id==='comments') return renderComments();
   if(id==='admins') return renderAdmins();
   if(id==='settings') return renderSettings();
+}
+
+async function refreshPendingBadge(){
+  const { count } = await supabaseClient.from('comments').select('*', { count:'exact', head:true }).eq('approved', false);
+  const el = document.getElementById('pendingBadge');
+  if(!el) return;
+  el.textContent = count ? ` (${count})` : '';
 }
 
 // ---------- PRODUCTS ----------
@@ -171,7 +275,7 @@ async function renderProducts(){
       ${p.image_url ? `<img src="${p.image_url}">` : `<div class="thumb-empty">💄</div>`}
       <div style="flex:1; min-width:0;">
         <p class="item-title">${p.name}</p>
-        <p class="item-sub">${Number(p.price).toLocaleString('fa-IR')} تومان${p.discount_price?` (تخفیف: ${Number(p.discount_price).toLocaleString('fa-IR')})`:''} · ${p.torob_link?'ترب فعال':'ترب غیرفعال'}</p>
+        <p class="item-sub">${Number(p.price).toLocaleString('fa-IR')} تومان${p.discount_price?` (تخفیف: ${Number(p.discount_price).toLocaleString('fa-IR')})`:''} · ${p.torob_link?'ترب فعال':'ترب غیرفعال'}${p.is_top?' · ⭐ ویژه':''}</p>
       </div>
       <button class="link-btn link-purple" onclick='openProductForm(${JSON.stringify(p)})'>ویرایش</button>
       <button class="link-btn link-red" onclick="deleteProduct('${p.id}')">حذف</button>
@@ -193,6 +297,10 @@ function openProductForm(product){
         <option value="">بدون دسته‌بندی</option>${catOptions}
       </select>
       <input class="field" id="pfTorob" placeholder="لینک خرید از ترب (خالی = دکمه غیرفعال)" dir="ltr" value="${product?product.torob_link||'':''}" style="margin-bottom:8px; text-align:left;">
+      <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:#6b7280; margin-bottom:10px;">
+        <input type="checkbox" id="pfTop" ${product&&product.is_top?'checked':''} style="width:16px;height:16px;">
+        ⭐ محصول ویژه (Top) — اول صفحه اصلی نمایش داده شود
+      </label>
       <label class="small">تصویر محصول</label>
       <input type="file" id="pfImage" accept="image/*" style="margin-bottom:10px;">
       ${product&&product.image_url?`<img src="${product.image_url}" style="width:60px;height:60px;object-fit:cover;border-radius:10px;margin-bottom:10px;display:block;">`:''}
@@ -233,6 +341,7 @@ async function saveProduct(){
     discount_price: document.getElementById('pfDiscount').value ? Number(document.getElementById('pfDiscount').value) : null,
     category_id: document.getElementById('pfCategory').value || null,
     torob_link: document.getElementById('pfTorob').value.trim() || null,
+    is_top: document.getElementById('pfTop').checked,
     image_url
   };
 
@@ -348,6 +457,55 @@ async function deleteOrder(id){
   if(!confirm('این سفارش حذف شود؟')) return;
   await supabaseClient.from('orders').delete().eq('id', id);
   renderOrders();
+}
+
+// ---------- COMMENTS ----------
+async function renderComments(){
+  const el = document.getElementById('tabContent');
+  el.innerHTML = `<h2 class="section-title">نظرات کاربران</h2><div id="commentsAdminWrap" class="muted">در حال بارگذاری...</div>`;
+
+  const [{ data: comments }, { data: products }] = await Promise.all([
+    supabaseClient.from('comments').select('*').order('created_at', { ascending:false }),
+    supabaseClient.from('products').select('id,name')
+  ]);
+  const wrap = document.getElementById('commentsAdminWrap');
+  if(!comments || comments.length===0){ wrap.innerHTML = '<p class="muted">نظری ثبت نشده.</p>'; return; }
+
+  const productNameOf = (id) => (products||[]).find(p=>p.id===id)?.name || '—';
+
+  const pending = comments.filter(c=>!c.approved);
+  const approved = comments.filter(c=>c.approved);
+
+  function commentRow(c){
+    return `
+    <div class="card-white" style="margin-bottom:8px; padding:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <b style="font-size:13.5px;">${c.name}</b>
+        <button class="link-btn link-red" onclick="deleteComment('${c.id}')">حذف</button>
+      </div>
+      <p class="item-sub">محصول: ${productNameOf(c.product_id)}</p>
+      <p style="font-size:13px; color:#374151; margin:6px 0;">${c.comment}</p>
+      ${c.approved
+        ? `<button class="link-btn link-red" onclick="setCommentApproval('${c.id}', false)">لغو تایید</button>`
+        : `<button class="link-btn link-purple" onclick="setCommentApproval('${c.id}', true)">✔️ تایید و نمایش</button>`}
+    </div>`;
+  }
+
+  wrap.innerHTML = `
+    ${pending.length ? `<h3 style="font-size:13px;color:#b45309;margin:0 0 8px;">⏳ در انتظار تایید (${pending.length})</h3>${pending.map(commentRow).join('')}` : ''}
+    ${approved.length ? `<h3 style="font-size:13px;color:#15803d;margin:16px 0 8px;">✅ تایید شده (${approved.length})</h3>${approved.map(commentRow).join('')}` : ''}
+  `;
+}
+async function setCommentApproval(id, approved){
+  await supabaseClient.from('comments').update({ approved }).eq('id', id);
+  renderComments();
+  refreshPendingBadge();
+}
+async function deleteComment(id){
+  if(!confirm('این نظر حذف شود؟')) return;
+  await supabaseClient.from('comments').delete().eq('id', id);
+  renderComments();
+  refreshPendingBadge();
 }
 
 // ---------- ADMINS ----------

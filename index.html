@@ -9,6 +9,7 @@
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared.js" defer></script>
 </head>
 <body class="splash-active">
 
@@ -21,14 +22,14 @@
 <header class="header">
   <div class="header-inner">
     <button class="burger-btn" onclick="openDrawer()">☰</button>
-    <a href="index.html" class="title-group">
+    <a href="index.html" class="title-group" onclick="return goHome(event)">
       <img src="logo.png" class="header-logo" alt="لوگو" onerror="this.style.display='none'" />
       <span class="title-col">
         <span class="site-title">آرایشی بهداشتی بابک</span>
         <span class="site-tagline">Là Lune 🌛</span>
       </span>
     </a>
-    <span style="width:28px"></span>
+    <button class="dark-toggle-btn" id="darkToggleBtn" onclick="toggleDarkMode()">🌙</button>
   </div>
 </header>
 
@@ -38,7 +39,7 @@
     <span>منو</span>
     <button class="drawer-close" onclick="closeDrawer()">×</button>
   </div>
-  <a href="index.html">🏠 خانه</a>
+  <a href="index.html" onclick="return goHome(event)">🏠 خانه</a>
   <button class="drawer-cat-btn" onclick="toggleCats()">🗂️ دسته‌بندی‌ها</button>
   <div class="cat-list" id="catList"></div>
   <a href="about.html">ℹ️ درباره ما</a>
@@ -71,10 +72,6 @@ let categories = [];
 let activeCategory = null;
 let siteSettings = {};
 
-function openDrawer(){ document.getElementById('drawer').classList.add('open'); document.getElementById('drawerOverlay').classList.add('open'); document.body.style.overflow='hidden'; }
-function closeDrawer(){ document.getElementById('drawer').classList.remove('open'); document.getElementById('drawerOverlay').classList.remove('open'); document.body.style.overflow=''; }
-function toggleCats(){ document.getElementById('catList').classList.toggle('open'); }
-
 function formatPrice(n){ return Number(n).toLocaleString('fa-IR') + ' تومان'; }
 
 async function loadEverything(){
@@ -95,29 +92,57 @@ async function loadEverything(){
 function renderDrawerCats(){
   const el = document.getElementById('catList');
   if(categories.length===0){ el.innerHTML = '<span style="font-size:13px;color:#d1d5db;padding:8px 10px;display:block;">دسته‌بندی‌ای ثبت نشده</span>'; return; }
-  el.innerHTML = categories.map(c => `<a href="#" onclick="filterCategory('${c.id}');closeDrawer();return false;">${c.name}</a>`).join('');
+  el.innerHTML = categories.map(c => `<a href="#" onclick="filterCategory('${c.id}');return false;">${c.name}</a>`).join('');
 }
 
 function renderChips(){
   const el = document.getElementById('chips');
   if(categories.length===0){ el.style.display='none'; return; }
   el.style.display='flex';
-  el.innerHTML = `<button class="chip ${!activeCategory?'active':''}" onclick="filterCategory(null)">همه محصولات</button>` +
-    categories.map(c => `<button class="chip ${activeCategory===c.id?'active':''}" onclick="filterCategory('${c.id}')">${c.name}</button>`).join('');
+  el.innerHTML = `<button class="chip" onclick="filterCategory(null)">همه محصولات</button>` +
+    categories.map(c => `<button class="chip" onclick="filterCategory('${c.id}')">${c.name}</button>`).join('');
 }
 
 function filterCategory(id){
-  activeCategory = id;
-  renderChips();
-  renderProducts();
-  window.scrollTo({top:0, behavior:'smooth'});
+  closeDrawer();
+  const target = id ? document.getElementById('cat-'+id) : null;
+  if(target){ target.scrollIntoView({behavior:'smooth', block:'start'}); }
+  else { window.scrollTo({top:0, behavior:'smooth'}); }
 }
 
 function renderProducts(){
   const el = document.getElementById('productArea');
-  const list = activeCategory ? allProducts.filter(p=>p.category_id===activeCategory) : allProducts;
-  if(list.length===0){ el.innerHTML = '<p class="empty-text">محصولی برای نمایش وجود ندارد.</p>'; return; }
-  el.innerHTML = `<div class="grid">${list.map(p=>productCard(p)).join('')}</div>`;
+  if(allProducts.length===0){ el.innerHTML = '<p class="empty-text">محصولی برای نمایش وجود ندارد.</p>'; return; }
+
+  const topProducts = allProducts.filter(p=>p.is_top);
+  const topIds = new Set(topProducts.map(p=>p.id));
+  let html = '';
+
+  if(topProducts.length>0){
+    html += `<div class="section-block entrance">
+      <h2 class="section-heading">⭐ محصولات ویژه</h2>
+      <div class="grid">${topProducts.map(p=>productCard(p)).join('')}</div>
+    </div>`;
+  }
+
+  categories.forEach(c=>{
+    const items = allProducts.filter(p=>p.category_id===c.id && !topIds.has(p.id));
+    if(items.length===0) return;
+    html += `<div class="section-block entrance" id="cat-${c.id}">
+      <h2 class="section-heading">${c.name}</h2>
+      <div class="grid">${items.map(p=>productCard(p)).join('')}</div>
+    </div>`;
+  });
+
+  const otherItems = allProducts.filter(p=>!p.category_id && !topIds.has(p.id));
+  if(otherItems.length>0){
+    html += `<div class="section-block entrance">
+      <h2 class="section-heading">سایر محصولات</h2>
+      <div class="grid">${otherItems.map(p=>productCard(p)).join('')}</div>
+    </div>`;
+  }
+
+  el.innerHTML = html || '<p class="empty-text">محصولی برای نمایش وجود ندارد.</p>';
 }
 
 function productCard(p){
@@ -128,20 +153,85 @@ function productCard(p){
   const torobHtml = p.torob_link
     ? `<a class="btn-torob" href="${p.torob_link}" target="_blank" rel="noopener">خرید از ترب</a>`
     : `<span class="btn-torob disabled">خرید از ترب</span>`;
-  const img = p.image_url ? `<img src="${p.image_url}" alt="${p.name}">` : '💄';
+  const img = p.image_url ? `<img src="${p.image_url}" alt="${p.name}" loading="lazy">` : '💄';
   return `
     <div class="card entrance">
-      <div class="card-img">${img}</div>
+      <div class="card-img">${p.is_top?'<span class="top-badge">⭐ ویژه</span>':''}${img}</div>
       <div class="card-body">
         <p class="card-title">${p.name}</p>
         ${p.description ? `<p class="card-desc">${p.description}</p>` : ''}
         <div class="price-row">${priceHtml}</div>
+        <button class="detail-link" onclick="openProductDetail('${p.id}')">💬 جزئیات و نظرات</button>
         <div class="btn-row">
           <button class="btn-order" onclick='openOrderModal(${JSON.stringify(p.id)}, ${JSON.stringify(p.name)})'>ثبت سفارش</button>
           ${torobHtml}
         </div>
       </div>
     </div>`;
+}
+
+async function openProductDetail(id){
+  const p = allProducts.find(x=>x.id===id);
+  if(!p) return;
+  const { data: comments } = await supabaseClient.from('comments').select('*').eq('product_id', id).eq('approved', true).order('created_at',{ascending:false});
+  const hasDiscount = p.discount_price != null && Number(p.discount_price) < Number(p.price);
+  const priceHtml = hasDiscount
+    ? `<span class="price-now">${formatPrice(p.discount_price)}</span><span class="price-old">${formatPrice(p.price)}</span>`
+    : `<span class="price-plain">${formatPrice(p.price)}</span>`;
+  const torobHtml = p.torob_link
+    ? `<a class="btn-torob" href="${p.torob_link}" target="_blank" rel="noopener">خرید از ترب</a>`
+    : `<span class="btn-torob disabled">خرید از ترب</span>`;
+
+  document.getElementById('modalArea').innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this) closeDetailModal()">
+      <div class="modal-box entrance">
+        <div class="modal-head">
+          <b>${p.name}</b>
+          <button class="modal-close" onclick="closeDetailModal()">×</button>
+        </div>
+        <div class="detail-img">${p.image_url?`<img src="${p.image_url}" alt="${p.name}">`:'💄'}</div>
+        ${p.description?`<p class="detail-desc">${p.description}</p>`:''}
+        <div class="price-row" style="margin:10px 0;">${priceHtml}</div>
+        <div class="btn-row">
+          <button class="btn-order" onclick='closeDetailModal();openOrderModal(${JSON.stringify(p.id)}, ${JSON.stringify(p.name)})'>ثبت سفارش</button>
+          ${torobHtml}
+        </div>
+
+        <hr class="detail-sep">
+        <h3 class="detail-comments-title">نظرات کاربران</h3>
+        <div id="commentsList">${renderComments(comments||[])}</div>
+
+        <div class="comment-form">
+          <input class="field" id="cmName" placeholder="نام شما" style="margin-bottom:8px;">
+          <textarea class="field" id="cmText" placeholder="نظر شما..." rows="2" style="margin-bottom:8px;"></textarea>
+          <p class="err-text" id="cmErr" style="display:none;"></p>
+          <button class="submit-btn" id="cmBtn" onclick="submitComment('${p.id}')">ثبت نظر</button>
+          <p style="font-size:11px;color:#9ca3af;margin-top:6px;">نظر شما پس از تایید ادمین نمایش داده می‌شود.</p>
+        </div>
+      </div>
+    </div>`;
+}
+function closeDetailModal(){ document.getElementById('modalArea').innerHTML=''; }
+
+function renderComments(list){
+  if(list.length===0) return '<p class="empty-text" style="padding:16px 0;">هنوز نظری ثبت نشده.</p>';
+  return list.map(c=>`<div class="comment-item"><b>${c.name}</b><p>${c.comment}</p></div>`).join('');
+}
+
+async function submitComment(productId){
+  const name = document.getElementById('cmName').value.trim();
+  const text = document.getElementById('cmText').value.trim();
+  const errEl = document.getElementById('cmErr');
+  errEl.style.display='none';
+  if(!name || !text){ errEl.textContent='نام و متن نظر الزامی است.'; errEl.style.display='block'; return; }
+  const btn = document.getElementById('cmBtn');
+  btn.disabled=true; btn.textContent='در حال ارسال...';
+  const { error } = await supabaseClient.from('comments').insert({ product_id: productId, name, comment: text, approved:false });
+  btn.disabled=false; btn.textContent='ثبت نظر';
+  if(error){ errEl.textContent='خطا در ثبت نظر.'; errEl.style.display='block'; return; }
+  document.getElementById('cmName').value='';
+  document.getElementById('cmText').value='';
+  alert('نظر شما ثبت شد و پس از تایید ادمین نمایش داده می‌شود.');
 }
 
 function renderFooter(settings){

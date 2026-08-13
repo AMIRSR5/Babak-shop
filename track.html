@@ -9,20 +9,21 @@
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="shared.js" defer></script>
 </head>
 <body>
 
 <header class="header">
   <div class="header-inner">
     <button class="burger-btn" onclick="openDrawer()">☰</button>
-    <a href="index.html" class="title-group">
+    <a href="index.html" class="title-group" onclick="return goHome(event)">
       <img src="logo.png" class="header-logo" alt="لوگو" onerror="this.style.display='none'" />
       <span class="title-col">
         <span class="site-title">آرایشی بهداشتی بابک</span>
         <span class="site-tagline">Là Lune 🌛</span>
       </span>
     </a>
-    <span style="width:28px"></span>
+    <button class="dark-toggle-btn" id="darkToggleBtn" onclick="toggleDarkMode()">🌙</button>
   </div>
 </header>
 
@@ -32,7 +33,7 @@
     <span>منو</span>
     <button class="drawer-close" onclick="closeDrawer()">×</button>
   </div>
-  <a href="index.html">🏠 خانه</a>
+  <a href="index.html" onclick="return goHome(event)">🏠 خانه</a>
   <button class="drawer-cat-btn" onclick="toggleCats()">🗂️ دسته‌بندی‌ها</button>
   <div class="cat-list" id="catList"></div>
   <a href="about.html">ℹ️ درباره ما</a>
@@ -62,10 +63,6 @@
 
 <script src="config.js"></script>
 <script>
-function openDrawer(){ document.getElementById('drawer').classList.add('open'); document.getElementById('drawerOverlay').classList.add('open'); document.body.style.overflow='hidden'; }
-function closeDrawer(){ document.getElementById('drawer').classList.remove('open'); document.getElementById('drawerOverlay').classList.remove('open'); document.body.style.overflow=''; }
-function toggleCats(){ document.getElementById('catList').classList.toggle('open'); }
-
 // prefill from ?code=... if arrived via link
 const params = new URLSearchParams(location.search);
 if(params.get('code')){ window.addEventListener('DOMContentLoaded', ()=>{ document.getElementById('trkCode').value = params.get('code'); }); }
