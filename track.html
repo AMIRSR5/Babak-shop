@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>درباره ما - آرایشی بهداشتی بابک</title>
+<title>پیگیری سفارش - آرایشی بهداشتی بابک</title>
 <link rel="icon" type="image/png" href="favicon.png" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
@@ -42,12 +42,19 @@
   </div>
 </nav>
 
-<div class="about-box entrance" id="aboutBox">
-  <h1>درباره ما</h1>
-  <p>در حال بارگذاری...</p>
-</div>
+<div class="track-box entrance">
+  <div class="track-card">
+    <h1>پیگیری سفارش</h1>
+    <p class="sub">کد سفارش و شماره تماسی که هنگام ثبت سفارش وارد کردید را بنویسید</p>
 
-<div class="location-box entrance" id="locationBox"></div>
+    <input class="field" id="trkCode" placeholder="کد سفارش (مثال BB-X7K2QP)" dir="ltr" style="text-align:left; margin-bottom:10px;">
+    <input class="field" id="trkPhone" placeholder="شماره تماس" inputmode="numeric" style="margin-bottom:10px;">
+    <p class="err-text" id="trkErr" style="display:none;"></p>
+    <button class="submit-btn" id="trkBtn" onclick="trackOrder()">پیگیری سفارش</button>
+
+    <div id="trkResult"></div>
+  </div>
+</div>
 
 <footer class="footer" id="footerArea">
   <p class="brand">آرایشی بهداشتی بابک</p>
@@ -59,28 +66,20 @@ function openDrawer(){ document.getElementById('drawer').classList.add('open'); 
 function closeDrawer(){ document.getElementById('drawer').classList.remove('open'); document.getElementById('drawerOverlay').classList.remove('open'); document.body.style.overflow=''; }
 function toggleCats(){ document.getElementById('catList').classList.toggle('open'); }
 
-async function loadAbout(){
+// prefill from ?code=... if arrived via link
+const params = new URLSearchParams(location.search);
+if(params.get('code')){ window.addEventListener('DOMContentLoaded', ()=>{ document.getElementById('trkCode').value = params.get('code'); }); }
+
+async function loadShell(){
   const [{data: cats}, {data: settings}] = await Promise.all([
     supabaseClient.from('categories').select('*').order('created_at'),
     supabaseClient.from('site_settings').select('*').eq('id',1).maybeSingle()
   ]);
   const catList = document.getElementById('catList');
   if(!cats || cats.length===0){ catList.innerHTML = '<span style="font-size:13px;color:#d1d5db;padding:8px 10px;display:block;">دسته‌بندی‌ای ثبت نشده</span>'; }
-  else { catList.innerHTML = cats.map(c=>`<a href="index.html#${c.id}">${c.name}</a>`).join(''); }
+  else { catList.innerHTML = cats.map(c=>`<a href="index.html?category=${c.id}">${c.name}</a>`).join(''); }
 
   const s = settings || {};
-  document.getElementById('aboutBox').innerHTML = `<h1>درباره ما</h1><p>${s.about_text || 'به زودی متن درباره ما تکمیل می‌شود.'}</p>`;
-
-  const locBox = document.getElementById('locationBox');
-  if(s.location_link){
-    locBox.innerHTML = `
-      <div class="row-flex">
-        <a class="map-link-btn" href="${s.location_link}" target="_blank" rel="noopener">📍 مشاهده لوکیشن فروشگاه</a>
-      </div>`;
-  } else {
-    locBox.innerHTML = '';
-  }
-
   let footerText = s.footer_text || 'کلیه حقوق سایت آرایشی بهداشتی بابک محفوظ است.';
   footerText = footerText.replace(/[.·\s]*ساخته شده توسط امیرحسین سرافراز[.\s]*/g, '').trim();
   const complaintEmail = s.complaint_email || '';
@@ -97,7 +96,55 @@ async function loadAbout(){
     <p class="footer-text" style="opacity:.75;">ساخته شده توسط امیرحسین سرافراز</p>
   `;
 }
-loadAbout();
+
+async function trackOrder(){
+  const code = document.getElementById('trkCode').value.trim();
+  const phone = document.getElementById('trkPhone').value.trim();
+  const errEl = document.getElementById('trkErr');
+  errEl.style.display = 'none';
+  if(!code || !phone){ errEl.textContent = 'کد سفارش و شماره تماس را وارد کنید.'; errEl.style.display='block'; return; }
+
+  const btn = document.getElementById('trkBtn');
+  btn.disabled = true; btn.textContent = 'در حال جستجو...';
+
+  const { data, error } = await supabaseClient.rpc('get_order_status', { p_order_code: code, p_phone: phone });
+
+  btn.disabled = false; btn.textContent = 'پیگیری سفارش';
+
+  const order = (data && data[0]) || null;
+  if(error || !order){
+    errEl.textContent = 'سفارشی با این مشخصات پیدا نشد. کد سفارش و شماره تماس را بررسی کنید.';
+    errEl.style.display = 'block';
+    document.getElementById('trkResult').innerHTML = '';
+    return;
+  }
+
+  const status = order.status || 'pending';
+  const isConfirmed = status === 'confirmed' || status === 'shipped';
+  const isShipped = status === 'shipped';
+
+  document.getElementById('trkResult').innerHTML = `
+    <div class="timeline entrance">
+      <div class="tl-step done">
+        <div><div class="tl-dot">✓</div><div class="tl-line"></div></div>
+        <div class="tl-content"><b>ثبت سفارش</b><span>سفارش شما با موفقیت ثبت شد</span></div>
+      </div>
+      <div class="tl-step ${isConfirmed?'done':''}">
+        <div><div class="tl-dot">${isConfirmed?'✓':'2'}</div><div class="tl-line"></div></div>
+        <div class="tl-content"><b>تایید فروشنده</b><span>${isConfirmed?'سفارش شما تایید شد':'در انتظار تایید فروشنده'}</span></div>
+      </div>
+      <div class="tl-step ${isShipped?'done':''}">
+        <div><div class="tl-dot">${isShipped?'✓':'3'}</div></div>
+        <div class="tl-content">
+          <b>ارسال سفارش</b>
+          <span>${isShipped ? 'مرسوله ارسال شد' : 'هنوز ارسال نشده'}</span>
+          ${isShipped && order.tracking_code ? `<div class="order-code-box" style="margin-top:8px;"><span>کد رهگیری پستی</span><b dir="ltr">${order.tracking_code}</b></div>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+loadShell();
 </script>
 </body>
 </html>

@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>آرایشی بهداشتی بابک</title>
-<link rel="icon" type="image/png" href="assets/favicon.png" />
+<link rel="icon" type="image/png" href="favicon.png" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
 <link rel="stylesheet" href="style.css" />
@@ -13,7 +13,7 @@
 <body class="splash-active">
 
 <div class="splash" id="splashScreen">
-  <img src="assets/logo.png" alt="آرایشی بهداشتی بابک" onerror="this.style.display='none'" />
+  <img src="logo.png" alt="آرایشی بهداشتی بابک" onerror="this.style.display='none'" />
   <span class="splash-title">آرایشی بهداشتی بابک</span>
   <span class="splash-tagline">Là Lune 🌛</span>
 </div>
@@ -22,7 +22,7 @@
   <div class="header-inner">
     <button class="burger-btn" onclick="openDrawer()">☰</button>
     <a href="index.html" class="title-group">
-      <img src="assets/logo.png" class="header-logo" alt="لوگو" onerror="this.style.display='none'" />
+      <img src="logo.png" class="header-logo" alt="لوگو" onerror="this.style.display='none'" />
       <span class="title-col">
         <span class="site-title">آرایشی بهداشتی بابک</span>
         <span class="site-tagline">Là Lune 🌛</span>
@@ -42,6 +42,7 @@
   <button class="drawer-cat-btn" onclick="toggleCats()">🗂️ دسته‌بندی‌ها</button>
   <div class="cat-list" id="catList"></div>
   <a href="about.html">ℹ️ درباره ما</a>
+  <a href="track.html">📦 پیگیری سفارش</a>
   <div style="margin-top:auto; padding-top:16px; border-top:1px solid #f3f4f6; text-align:center;">
     <a href="admin.html" style="font-size:12px; color:#9ca3af;">ورود مدیریت</a>
   </div>
@@ -244,6 +245,7 @@ async function submitOrder(productId, productName){
       <span class="order-status pending">⏳ منتظر تایید فروشنده</span>
       <button class="submit-btn" style="background:#0088cc;" onclick="confirmOnRubika('${order_code}')">پرداخت و تایید سفارش</button>
       <p style="font-size:11px;color:#9ca3af;margin-top:8px;">با کلیک روی دکمه بالا، کد سفارش کپی می‌شود و چت روبیکا برای هماهنگی پرداخت باز می‌شود. پس از پرداخت، فروشنده سفارش شما را تایید می‌کند.</p>
+      <a class="submit-btn" style="background:#9333ea; display:block; text-align:center; margin-top:8px;" href="track.html?code=${order_code}">پیگیری وضعیت سفارش</a>
       <button class="submit-btn" style="background:#9ca3af; margin-top:8px;" onclick="closeOrderModal()">متوجه شدم</button>
     </div>`;
 }

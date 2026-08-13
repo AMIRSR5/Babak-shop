@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>پنل مدیریت - آرایشی بهداشتی بابک</title>
-<link rel="icon" type="image/png" href="assets/favicon.png" />
+<link rel="icon" type="image/png" href="favicon.png" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
 <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -96,7 +96,7 @@ function loginScreen(){
   return `
   <div class="center-screen login-bg">
     <div class="login-card">
-      <img src="assets/logo.png" alt="لوگو" onerror="this.style.display='none'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin:0 auto 4px;display:block;box-shadow:0 4px 14px rgba(0,0,0,.15);">
+      <img src="logo.png" alt="لوگو" onerror="this.style.display='none'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin:0 auto 4px;display:block;box-shadow:0 4px 14px rgba(0,0,0,.15);">
       <h1>ورود به پنل مدیریت</h1>
       <p class="sub">آرایشی بهداشتی بابک</p>
       <input class="field" id="loginEmail" type="email" placeholder="ایمیل" dir="ltr" />
@@ -286,6 +286,12 @@ async function deleteCategory(id){
 }
 
 // ---------- ORDERS ----------
+function orderStatusBadge(status){
+  if(status==='shipped') return `<span class="order-status shipped">📦 ارسال شده</span>`;
+  if(status==='confirmed') return `<span class="order-status confirmed">✅ تایید شده</span>`;
+  return `<span class="order-status pending">⏳ منتظر تایید فروشنده</span>`;
+}
+
 async function renderOrders(){
   const el = document.getElementById('tabContent');
   el.innerHTML = `<h2 class="section-title">سفارش‌ها</h2><div id="ordersWrap" class="muted">در حال بارگذاری...</div>`;
@@ -293,28 +299,49 @@ async function renderOrders(){
   const wrap = document.getElementById('ordersWrap');
   if(!data || data.length===0){ wrap.innerHTML='<p class="muted">سفارشی ثبت نشده.</p>'; return; }
   wrap.innerHTML = data.map(o=>{
-    const isConfirmed = o.status === 'confirmed';
+    const status = o.status || 'pending';
+    let actionHtml = '';
+    if(status==='pending'){
+      actionHtml = `<button class="link-btn link-purple" style="margin-top:6px;" onclick="toggleOrderStatus('${o.id}','confirmed')">✔️ تایید سفارش</button>`;
+    } else if(status==='confirmed'){
+      actionHtml = `
+        <div class="row-flex-2" style="margin-top:8px;">
+          <input class="field" id="trkInput-${o.id}" placeholder="کد رهگیری پستی" dir="ltr" style="text-align:left;" value="${o.tracking_code||''}">
+        </div>
+        <div style="display:flex; gap:10px; margin-top:6px;">
+          <button class="link-btn link-purple" onclick="shipOrder('${o.id}')">📦 ثبت کد رهگیری و ارسال</button>
+          <button class="link-btn link-red" onclick="toggleOrderStatus('${o.id}','pending')">بازگشت به انتظار</button>
+        </div>`;
+    } else {
+      actionHtml = `
+        ${o.tracking_code?`<p class="item-sub" style="color:#1e40af;font-weight:700;" dir="ltr">کد رهگیری: ${o.tracking_code}</p>`:''}
+        <button class="link-btn link-red" style="margin-top:6px;" onclick="toggleOrderStatus('${o.id}','confirmed')">بازگشت به حالت تایید شده</button>`;
+    }
     return `
     <div class="card-white" style="margin-bottom:8px; padding:12px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start;">
         <b style="font-size:13.5px;">${o.customer_name}</b>
         <button class="link-btn link-red" onclick="deleteOrder('${o.id}')">حذف</button>
       </div>
-      <span class="order-status ${isConfirmed?'confirmed':'pending'}">${isConfirmed?'✅ تایید شده':'⏳ منتظر تایید فروشنده'}</span>
+      ${orderStatusBadge(status)}
       ${o.order_code?`<p class="item-sub" style="color:#db2777;font-weight:700;" dir="ltr">${o.order_code}</p>`:''}
       <p class="item-sub">محصول: ${o.product_name||'—'} · تعداد: ${o.quantity}</p>
       <p class="item-sub" dir="ltr">${o.phone||''}</p>
       <p class="item-sub">${[o.province,o.city].filter(Boolean).join(' - ')}</p>
       <p class="item-sub">${o.address||''}${o.plate?` · پلاک ${o.plate}`:''}${o.unit?` · واحد ${o.unit}`:''}</p>
       ${o.postal_code?`<p class="item-sub" dir="ltr">کد پستی: ${o.postal_code}</p>`:''}
-      <button class="link-btn ${isConfirmed?'link-red':'link-purple'}" style="margin-top:6px;" onclick="toggleOrderStatus('${o.id}','${isConfirmed?'pending':'confirmed'}')">
-        ${isConfirmed?'برگرداندن به حالت انتظار':'✔️ تایید سفارش'}
-      </button>
+      ${actionHtml}
     </div>`;
   }).join('');
 }
 async function toggleOrderStatus(id, newStatus){
   await supabaseClient.from('orders').update({ status: newStatus }).eq('id', id);
+  renderOrders();
+}
+async function shipOrder(id){
+  const val = document.getElementById(`trkInput-${id}`).value.trim();
+  if(!val){ alert('لطفاً کد رهگیری پستی را وارد کنید.'); return; }
+  await supabaseClient.from('orders').update({ status: 'shipped', tracking_code: val }).eq('id', id);
   renderOrders();
 }
 async function deleteOrder(id){
