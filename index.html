@@ -44,9 +44,7 @@
   <div class="cat-list" id="catList"></div>
   <a href="about.html">ℹ️ درباره ما</a>
   <a href="track.html">📦 پیگیری سفارش</a>
-  <div style="margin-top:auto; padding-top:16px; border-top:1px solid #f3f4f6; text-align:center;">
-    <a href="admin.html" style="font-size:12px; color:#9ca3af;">ورود مدیریت</a>
-  </div>
+  <a href="login.html" id="authMenuLink">👤 ورود / ثبت‌نام</a>
 </nav>
 
 <section class="hero entrance">
@@ -71,8 +69,46 @@ let allProducts = [];
 let categories = [];
 let activeCategory = null;
 let siteSettings = {};
+let currentUser = null;
 
 function formatPrice(n){ return Number(n).toLocaleString('fa-IR') + ' تومان'; }
+
+async function initAuth(){
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  currentUser = session?.user || null;
+  updateAuthUI();
+  maybeResumePendingOrder();
+
+  supabaseClient.auth.onAuthStateChange((_e, session) => {
+    currentUser = session?.user || null;
+    updateAuthUI();
+  });
+}
+
+function updateAuthUI(){
+  const el = document.getElementById('authMenuLink');
+  if(!el) return;
+  if(currentUser){
+    el.textContent = `🚪 خروج (${currentUser.email})`;
+    el.href = '#';
+    el.onclick = async (e) => { e.preventDefault(); await supabaseClient.auth.signOut(); location.reload(); };
+  } else {
+    el.textContent = '👤 ورود / ثبت‌نام';
+    el.href = 'login.html';
+    el.onclick = null;
+  }
+}
+
+function maybeResumePendingOrder(){
+  const raw = sessionStorage.getItem('pendingOrder');
+  if(raw && currentUser){
+    sessionStorage.removeItem('pendingOrder');
+    try{
+      const { productId, productName } = JSON.parse(raw);
+      openOrderModal(productId, productName, true);
+    }catch(e){}
+  }
+}
 
 async function loadEverything(){
   const [{data: cats}, {data: prods}, {data: settings}] = await Promise.all([
@@ -153,7 +189,8 @@ function productCard(p){
   const torobHtml = p.torob_link
     ? `<a class="btn-torob" href="${p.torob_link}" target="_blank" rel="noopener">خرید از ترب</a>`
     : `<span class="btn-torob disabled">خرید از ترب</span>`;
-  const img = p.image_url ? `<img src="${p.image_url}" alt="${p.name}" loading="lazy">` : '💄';
+  const thumb = (p.images && p.images.length) ? p.images[0] : p.image_url;
+  const img = thumb ? `<img src="${thumb}" alt="${p.name}" loading="lazy">` : '💄';
   return `
     <div class="card entrance">
       <div class="card-img">${p.is_top?'<span class="top-badge">⭐ ویژه</span>':''}${img}</div>
@@ -182,6 +219,8 @@ async function openProductDetail(id){
     ? `<a class="btn-torob" href="${p.torob_link}" target="_blank" rel="noopener">خرید از ترب</a>`
     : `<span class="btn-torob disabled">خرید از ترب</span>`;
 
+  const gallery = (p.images && p.images.length) ? p.images : (p.image_url ? [p.image_url] : []);
+
   document.getElementById('modalArea').innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this) closeDetailModal()">
       <div class="modal-box entrance">
@@ -189,7 +228,8 @@ async function openProductDetail(id){
           <b>${p.name}</b>
           <button class="modal-close" onclick="closeDetailModal()">×</button>
         </div>
-        <div class="detail-img">${p.image_url?`<img src="${p.image_url}" alt="${p.name}">`:'💄'}</div>
+        <div class="detail-img" id="detailMainImg">${gallery[0]?`<img src="${gallery[0]}" alt="${p.name}">`:'💄'}</div>
+        ${gallery.length>1 ? `<div class="detail-thumbs">${gallery.map((url,i)=>`<button class="detail-thumb ${i===0?'active':''}" onclick="switchDetailImage(this,'${url}')"><img src="${url}"></button>`).join('')}</div>` : ''}
         ${p.description?`<p class="detail-desc">${p.description}</p>`:''}
         <div class="price-row" style="margin:10px 0;">${priceHtml}</div>
         <div class="btn-row">
@@ -212,6 +252,12 @@ async function openProductDetail(id){
     </div>`;
 }
 function closeDetailModal(){ document.getElementById('modalArea').innerHTML=''; }
+
+function switchDetailImage(btn, url){
+  document.getElementById('detailMainImg').innerHTML = `<img src="${url}" alt="">`;
+  document.querySelectorAll('.detail-thumb').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+}
 
 function renderComments(list){
   if(list.length===0) return '<p class="empty-text" style="padding:16px 0;">هنوز نظری ثبت نشده.</p>';
@@ -253,7 +299,12 @@ function renderFooter(settings){
   `;
 }
 
-function openOrderModal(productId, productName){
+function openOrderModal(productId, productName, skipAuthCheck){
+  if(!skipAuthCheck && !currentUser){
+    sessionStorage.setItem('pendingOrder', JSON.stringify({ productId, productName }));
+    location.href = 'login.html?redirect=index.html';
+    return;
+  }
   document.getElementById('modalArea').innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this) closeOrderModal()">
       <div class="modal-box entrance">
@@ -314,7 +365,8 @@ async function submitOrder(productId, productName){
   const { error } = await supabaseClient.from('orders').insert({
     product_id: productId, product_name: productName,
     customer_name: name, phone, province, city, address, plate, unit, postal_code,
-    quantity, order_code, status: 'pending'
+    quantity, order_code, status: 'pending',
+    customer_id: currentUser?.id || null, customer_email: currentUser?.email || null
   });
 
   if(error){
@@ -356,6 +408,7 @@ function hideSplash(){
 }
 
 loadEverything();
+initAuth();
 setTimeout(hideSplash, 1300);
 </script>
 </body>

@@ -38,9 +38,7 @@
   <div class="cat-list" id="catList"></div>
   <a href="about.html">ℹ️ درباره ما</a>
   <a href="track.html">📦 پیگیری سفارش</a>
-  <div style="margin-top:auto; padding-top:16px; border-top:1px solid #f3f4f6; text-align:center;">
-    <a href="admin.html" style="font-size:12px; color:#9ca3af;">ورود مدیریت</a>
-  </div>
+  <a href="login.html" id="authMenuLink">👤 ورود / ثبت‌نام</a>
 </nav>
 
 <div class="track-box entrance">
@@ -141,6 +139,16 @@ async function trackOrder(){
     </div>`;
 }
 
+function updateAuthUI(user){
+  const el = document.getElementById('authMenuLink');
+  if(!el) return;
+  if(user){
+    el.textContent = `🚪 خروج (${user.email})`;
+    el.href = '#';
+    el.onclick = async (e) => { e.preventDefault(); await supabaseClient.auth.signOut(); location.reload(); };
+  }
+}
+supabaseClient.auth.getSession().then(({data:{session}})=> updateAuthUI(session?.user||null));
 loadShell();
 </script>
 </body>

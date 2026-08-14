@@ -49,6 +49,10 @@ input,textarea,select{ font-family:inherit; }
 .list-item{ display:flex; align-items:center; gap:10px; background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:10px 12px; margin-bottom:8px; }
 .list-item img{ width:44px; height:44px; border-radius:10px; object-fit:cover; background:#fdf2f8; flex-shrink:0; }
 .list-item .thumb-empty{ width:44px; height:44px; border-radius:10px; background:#fdf2f8; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.image-thumbs-row{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; }
+.thumb-chip{ position:relative; width:56px; height:56px; border-radius:10px; overflow:hidden; }
+.thumb-chip img{ width:100%; height:100%; object-fit:cover; }
+.thumb-chip button{ position:absolute; top:2px; left:2px; background:rgba(0,0,0,.55); color:#fff; width:18px; height:18px; border-radius:50%; font-size:12px; line-height:1; display:flex; align-items:center; justify-content:center; }
 .item-title{ font-weight:700; font-size:13.5px; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .item-sub{ font-size:11.5px; color:#9ca3af; margin:2px 0 0; }
 .link-btn{ background:none; font-size:12.5px; font-weight:600; flex-shrink:0; }
@@ -106,7 +110,6 @@ function render(){
 // ---------- LOGIN ----------
 function loginScreen(){
   if(authMode==='signup') return signupScreenHtml();
-  if(authMode==='verify') return verifyScreenHtml();
   return `
   <div class="center-screen login-bg">
     <div class="login-card">
@@ -135,33 +138,19 @@ function signupScreenHtml(){
     <div class="login-card">
       <img src="logo.png" alt="لوگو" onerror="this.style.display='none'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin:0 auto 4px;display:block;box-shadow:0 4px 14px rgba(0,0,0,.15);">
       <h1>ساخت حساب جدید</h1>
-      <p class="sub">بعد از ثبت‌نام، یک کد تایید به ایمیلتان ارسال می‌شود</p>
+      <p class="sub">بعد از ثبت‌نام، یک لینک تایید به ایمیلتان ارسال می‌شود</p>
       <input class="field" id="suEmail" type="email" placeholder="ایمیل" dir="ltr" />
       <input class="field" id="suPass" type="password" placeholder="رمز عبور (حداقل ۶ کاراکتر)" dir="ltr" />
       <p class="err-text" id="suErr" style="display:none;"></p>
-      <button class="btn-main" id="suBtn">ثبت‌نام و ارسال کد تایید</button>
+      <p class="sub" id="suSuccess" style="display:none;color:#15803d;"></p>
+      <button class="btn-main" id="suBtn">ثبت‌نام</button>
       <button class="link-switch" id="toLoginBtn">قبلاً حساب دارید؟ ورود</button>
-    </div>
-  </div>`;
-}
-
-function verifyScreenHtml(){
-  return `
-  <div class="center-screen login-bg">
-    <div class="login-card">
-      <h1>تایید ایمیل</h1>
-      <p class="sub">کد ارسال‌شده به ${pendingSignupEmail} را وارد کنید</p>
-      <input class="field" id="otpCode" placeholder="کد تایید" inputmode="numeric" dir="ltr" style="text-align:center; letter-spacing:4px; font-size:18px;" />
-      <p class="err-text" id="otpErr" style="display:none;"></p>
-      <button class="btn-main" id="otpBtn">تایید کد</button>
-      <button class="link-switch" id="backToSignup">بازگشت</button>
     </div>
   </div>`;
 }
 
 function attachLoginEvents(){
   if(authMode==='signup') return attachSignupEvents();
-  if(authMode==='verify') return attachVerifyEvents();
 
   document.getElementById('googleBtn').onclick = async () => {
     await supabaseClient.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: window.location.href.split('?')[0] } });
@@ -185,32 +174,16 @@ function attachSignupEvents(){
     const email = document.getElementById('suEmail').value.trim();
     const password = document.getElementById('suPass').value;
     const errEl = document.getElementById('suErr');
-    errEl.style.display='none';
+    const okEl = document.getElementById('suSuccess');
+    errEl.style.display='none'; okEl.style.display='none';
     if(!email || password.length<6){ errEl.textContent='ایمیل و رمز حداقل ۶ کاراکتری لازم است.'; errEl.style.display='block'; return; }
     const btn = document.getElementById('suBtn');
     btn.disabled=true; btn.textContent='در حال ارسال...';
     const { error } = await supabaseClient.auth.signUp({ email, password });
-    btn.disabled=false; btn.textContent='ثبت‌نام و ارسال کد تایید';
+    btn.disabled=false; btn.textContent='ثبت‌نام';
     if(error){ errEl.textContent = error.message && error.message.includes('already') ? 'این ایمیل قبلاً ثبت شده است.' : 'خطا در ثبت‌نام.'; errEl.style.display='block'; return; }
-    pendingSignupEmail = email;
-    authMode = 'verify';
-    render();
-  };
-}
-
-function attachVerifyEvents(){
-  document.getElementById('backToSignup').onclick = () => { authMode='signup'; render(); };
-  document.getElementById('otpBtn').onclick = async () => {
-    const token = document.getElementById('otpCode').value.trim();
-    const errEl = document.getElementById('otpErr');
-    errEl.style.display='none';
-    if(!token){ errEl.textContent='کد تایید را وارد کنید.'; errEl.style.display='block'; return; }
-    const btn = document.getElementById('otpBtn');
-    btn.disabled=true; btn.textContent='در حال بررسی...';
-    const { error } = await supabaseClient.auth.verifyOtp({ email: pendingSignupEmail, token, type:'signup' });
-    btn.disabled=false; btn.textContent='تایید کد';
-    if(error){ errEl.textContent='کد وارد شده نادرست یا منقضی شده است.'; errEl.style.display='block'; return; }
-    // success — onAuthStateChange fires automatically and re-renders
+    okEl.textContent = 'یک لینک تایید برای ایمیلتان ارسال شد. روی آن کلیک کنید و سپس از همین صفحه وارد شوید.';
+    okEl.style.display='block';
   };
 }
 
@@ -254,6 +227,7 @@ async function refreshPendingBadge(){
 
 // ---------- PRODUCTS ----------
 let editingProduct = null;
+let editingImages = [];
 let categoriesCache = [];
 
 async function renderProducts(){
@@ -284,6 +258,7 @@ async function renderProducts(){
 
 function openProductForm(product){
   editingProduct = product;
+  editingImages = product ? (product.images && product.images.length ? [...product.images] : (product.image_url ? [product.image_url] : [])) : [];
   const catOptions = categoriesCache.map(c=>`<option value="${c.id}" ${product&&product.category_id===c.id?'selected':''}>${c.name}</option>`).join('');
   document.getElementById('productFormWrap').innerHTML = `
     <div class="card-white">
@@ -301,17 +276,32 @@ function openProductForm(product){
         <input type="checkbox" id="pfTop" ${product&&product.is_top?'checked':''} style="width:16px;height:16px;">
         ⭐ محصول ویژه (Top) — اول صفحه اصلی نمایش داده شود
       </label>
-      <label class="small">تصویر محصول</label>
-      <input type="file" id="pfImage" accept="image/*" style="margin-bottom:10px;">
-      ${product&&product.image_url?`<img src="${product.image_url}" style="width:60px;height:60px;object-fit:cover;border-radius:10px;margin-bottom:10px;display:block;">`:''}
+      <label class="small">تصاویر محصول (می‌توانید چند عکس با هم انتخاب کنید)</label>
+      <input type="file" id="pfImages" accept="image/*" multiple style="margin-bottom:10px;">
+      <div id="pfImageThumbs" class="image-thumbs-row"></div>
       <p class="err-text" id="pfErr" style="display:none;"></p>
       <div class="row-flex">
         <button class="btn-main" style="flex:1;" id="pfSaveBtn" onclick="saveProduct()">ذخیره</button>
         <button class="link-btn link-red" style="border:1px solid #fca5a5; border-radius:12px; padding:0 16px;" onclick="closeProductForm()">انصراف</button>
       </div>
     </div>`;
+  renderImageThumbs();
 }
-function closeProductForm(){ document.getElementById('productFormWrap').innerHTML=''; editingProduct=null; }
+function renderImageThumbs(){
+  const el = document.getElementById('pfImageThumbs');
+  if(!el) return;
+  if(editingImages.length===0){ el.innerHTML=''; return; }
+  el.innerHTML = editingImages.map((url,i)=>`
+    <div class="thumb-chip">
+      <img src="${url}">
+      <button type="button" onclick="removeEditingImage(${i})">×</button>
+    </div>`).join('');
+}
+function removeEditingImage(i){
+  editingImages.splice(i,1);
+  renderImageThumbs();
+}
+function closeProductForm(){ document.getElementById('productFormWrap').innerHTML=''; editingProduct=null; editingImages=[]; }
 
 async function saveProduct(){
   const name = document.getElementById('pfName').value.trim();
@@ -322,15 +312,14 @@ async function saveProduct(){
   const btn = document.getElementById('pfSaveBtn');
   btn.disabled = true; btn.textContent='در حال ذخیره...';
 
-  let image_url = editingProduct ? editingProduct.image_url : null;
-  const file = document.getElementById('pfImage').files[0];
-  if(file){
+  const files = document.getElementById('pfImages').files;
+  for(const file of files){
     const ext = file.name.split('.').pop();
     const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
     const { error: upErr } = await supabaseClient.storage.from('product-images').upload(path, file);
     if(!upErr){
       const { data } = supabaseClient.storage.from('product-images').getPublicUrl(path);
-      image_url = data.publicUrl;
+      editingImages.push(data.publicUrl);
     }
   }
 
@@ -342,7 +331,8 @@ async function saveProduct(){
     category_id: document.getElementById('pfCategory').value || null,
     torob_link: document.getElementById('pfTorob').value.trim() || null,
     is_top: document.getElementById('pfTop').checked,
-    image_url
+    images: editingImages,
+    image_url: editingImages[0] || null
   };
 
   if(editingProduct){
