@@ -32,6 +32,39 @@ input,textarea,select{ font-family:inherit; }
 .or-divider::before, .or-divider::after{ content:''; flex:1; height:1px; background:#e5e7eb; }
 .link-switch{ background:none; color:#7c3aed; font-size:12.5px; font-weight:600; text-align:center; padding:4px; margin-top:4px; }
 
+/* ---------- Bear ---------- */
+.bear-wrap{ width:130px; height:130px; margin:0 auto 6px; position:relative; }
+.bear-ear{ position:absolute; top:2px; width:34px; height:34px; background:#fdf2f8; border:1px solid #fbcfe8; border-radius:50%; }
+.bear-ear.left{ left:4px; } .bear-ear.right{ right:4px; }
+.bear-ear::after{ content:''; position:absolute; inset:8px; background:#f9a8d4; border-radius:50%; }
+.bear-head{
+  position:absolute; top:20px; left:50%; transform:translateX(-50%);
+  width:104px; height:90px; background:#fff; border:1px solid #fbcfe8; border-radius:50% 50% 46% 46%;
+}
+.bear-eye{ position:absolute; top:34px; width:14px; height:14px; background:#2b2b33; border-radius:50%; }
+.bear-eye.left{ left:22px; } .bear-eye.right{ right:22px; }
+.bear-blush{ position:absolute; top:54px; width:14px; height:8px; background:#fbcfe8; border-radius:50%; opacity:.8; }
+.bear-blush.left{ left:12px; } .bear-blush.right{ right:12px; }
+.bear-snout{
+  position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+  width:30px; height:19px; background:#fdf2f8; border-radius:50%;
+}
+.bear-snout::after{
+  content:''; position:absolute; top:4px; left:50%; transform:translateX(-50%);
+  width:8px; height:6px; background:#2b2b33; border-radius:50%;
+}
+.bear-paw{
+  position:absolute; top:20px; width:40px; height:40px; background:#fff; border:1px solid #fbcfe8;
+  border-radius:46% 46% 50% 50% / 60% 60% 40% 40%;
+  transform:translateY(-80px); transition:transform .35s cubic-bezier(.34,1.4,.64,1); z-index:3;
+  box-shadow:0 4px 10px rgba(0,0,0,.08);
+}
+.bear-paw::before, .bear-paw::after{ content:''; position:absolute; top:-5px; width:10px; height:12px; background:#fff; border:1px solid #fbcfe8; border-radius:50%; }
+.bear-paw::before{ left:5px; } .bear-paw::after{ right:5px; }
+.bear-paw.left{ left:6px; } .bear-paw.right{ right:6px; }
+.bear-wrap.covering .bear-paw.left{ transform:translateY(24px) rotate(-6deg); }
+.bear-wrap.covering .bear-paw.right{ transform:translateY(24px) rotate(6deg); }
+
 .admin-header{ background:linear-gradient(90deg,#9333ea,#ec4899,#7c3aed); color:#fff; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; }
 .admin-header b{ font-size:15px; }
 .admin-header .email{ font-size:11px; opacity:.8; direction:ltr; display:inline-block; }
@@ -108,12 +141,28 @@ function render(){
 }
 
 // ---------- LOGIN ----------
+const bearHtml = `
+  <div class="bear-wrap" id="bearWrap">
+    <div class="bear-ear left"></div>
+    <div class="bear-ear right"></div>
+    <div class="bear-head">
+      <div class="bear-eye left"></div>
+      <div class="bear-eye right"></div>
+      <div class="bear-blush left"></div>
+      <div class="bear-blush right"></div>
+      <div class="bear-snout"></div>
+    </div>
+    <div class="bear-paw left"></div>
+    <div class="bear-paw right"></div>
+  </div>`;
+
 function loginScreen(){
   if(authMode==='signup') return signupScreenHtml();
+  if(authMode==='verify') return verifyScreenHtml();
   return `
   <div class="center-screen login-bg">
     <div class="login-card">
-      <img src="logo.png" alt="لوگو" onerror="this.style.display='none'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin:0 auto 4px;display:block;box-shadow:0 4px 14px rgba(0,0,0,.15);">
+      ${bearHtml}
       <h1>ورود به پنل مدیریت</h1>
       <p class="sub">آرایشی بهداشتی بابک</p>
 
@@ -136,21 +185,47 @@ function signupScreenHtml(){
   return `
   <div class="center-screen login-bg">
     <div class="login-card">
-      <img src="logo.png" alt="لوگو" onerror="this.style.display='none'" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin:0 auto 4px;display:block;box-shadow:0 4px 14px rgba(0,0,0,.15);">
+      ${bearHtml}
       <h1>ساخت حساب جدید</h1>
-      <p class="sub">بعد از ثبت‌نام، یک لینک تایید به ایمیلتان ارسال می‌شود</p>
+      <p class="sub">بعد از ثبت‌نام، یک کد تایید به ایمیلتان ارسال می‌شود</p>
       <input class="field" id="suEmail" type="email" placeholder="ایمیل" dir="ltr" />
       <input class="field" id="suPass" type="password" placeholder="رمز عبور (حداقل ۶ کاراکتر)" dir="ltr" />
       <p class="err-text" id="suErr" style="display:none;"></p>
-      <p class="sub" id="suSuccess" style="display:none;color:#15803d;"></p>
-      <button class="btn-main" id="suBtn">ثبت‌نام</button>
+      <button class="btn-main" id="suBtn">ثبت‌نام و ارسال کد تایید</button>
       <button class="link-switch" id="toLoginBtn">قبلاً حساب دارید؟ ورود</button>
     </div>
   </div>`;
 }
 
+function verifyScreenHtml(){
+  return `
+  <div class="center-screen login-bg">
+    <div class="login-card">
+      <h1>تایید ایمیل</h1>
+      <p class="sub">کد ارسال‌شده به ${pendingSignupEmail} را وارد کنید</p>
+      <input class="field" id="otpCode" placeholder="کد تایید" inputmode="numeric" dir="ltr" style="text-align:center; letter-spacing:4px; font-size:18px;" />
+      <p class="err-text" id="otpErr" style="display:none;"></p>
+      <button class="btn-main" id="otpBtn">تایید کد</button>
+      <button class="link-switch" id="backToSignup">بازگشت</button>
+    </div>
+  </div>`;
+}
+
+function attachBearEvents(passId, emailId){
+  const bear = document.getElementById('bearWrap');
+  const pass = document.getElementById(passId);
+  const email = document.getElementById(emailId);
+  if(!bear || !pass) return;
+  pass.addEventListener('focus', ()=> bear.classList.add('covering'));
+  pass.addEventListener('blur', ()=> bear.classList.remove('covering'));
+  if(email) email.addEventListener('focus', ()=> bear.classList.remove('covering'));
+}
+
 function attachLoginEvents(){
   if(authMode==='signup') return attachSignupEvents();
+  if(authMode==='verify') return attachVerifyEvents();
+
+  attachBearEvents('loginPass','loginEmail');
 
   document.getElementById('googleBtn').onclick = async () => {
     await supabaseClient.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: window.location.href.split('?')[0] } });
@@ -169,21 +244,38 @@ function attachLoginEvents(){
 }
 
 function attachSignupEvents(){
+  attachBearEvents('suPass','suEmail');
   document.getElementById('toLoginBtn').onclick = () => { authMode='login'; render(); };
   document.getElementById('suBtn').onclick = async () => {
     const email = document.getElementById('suEmail').value.trim();
     const password = document.getElementById('suPass').value;
     const errEl = document.getElementById('suErr');
-    const okEl = document.getElementById('suSuccess');
-    errEl.style.display='none'; okEl.style.display='none';
+    errEl.style.display='none';
     if(!email || password.length<6){ errEl.textContent='ایمیل و رمز حداقل ۶ کاراکتری لازم است.'; errEl.style.display='block'; return; }
     const btn = document.getElementById('suBtn');
     btn.disabled=true; btn.textContent='در حال ارسال...';
     const { error } = await supabaseClient.auth.signUp({ email, password });
-    btn.disabled=false; btn.textContent='ثبت‌نام';
+    btn.disabled=false; btn.textContent='ثبت‌نام و ارسال کد تایید';
     if(error){ errEl.textContent = error.message && error.message.includes('already') ? 'این ایمیل قبلاً ثبت شده است.' : 'خطا در ثبت‌نام.'; errEl.style.display='block'; return; }
-    okEl.textContent = 'یک لینک تایید برای ایمیلتان ارسال شد. روی آن کلیک کنید و سپس از همین صفحه وارد شوید.';
-    okEl.style.display='block';
+    pendingSignupEmail = email;
+    authMode = 'verify';
+    render();
+  };
+}
+
+function attachVerifyEvents(){
+  document.getElementById('backToSignup').onclick = () => { authMode='signup'; render(); };
+  document.getElementById('otpBtn').onclick = async () => {
+    const token = document.getElementById('otpCode').value.trim();
+    const errEl = document.getElementById('otpErr');
+    errEl.style.display='none';
+    if(!token){ errEl.textContent='کد تایید را وارد کنید.'; errEl.style.display='block'; return; }
+    const btn = document.getElementById('otpBtn');
+    btn.disabled=true; btn.textContent='در حال بررسی...';
+    const { error } = await supabaseClient.auth.verifyOtp({ email: pendingSignupEmail, token, type:'signup' });
+    btn.disabled=false; btn.textContent='تایید کد';
+    if(error){ errEl.textContent='کد وارد شده نادرست یا منقضی شده است.'; errEl.style.display='block'; return; }
+    // success — onAuthStateChange fires automatically and re-renders
   };
 }
 
