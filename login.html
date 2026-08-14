@@ -114,13 +114,21 @@ input{ font-family:inherit; }
   <h1 class="auth-title" id="authTitle">Welcome Back</h1>
   <p class="auth-sub" id="authSub">وارد حساب کاربری خود شوید</p>
 
-  <div class="field-wrap">
-    <input class="field" id="authEmail" type="email" placeholder="ایمیل" dir="ltr" autocomplete="email">
-    <span class="field-icon">✉️</span>
+  <div id="stepCreds">
+    <div class="field-wrap">
+      <input class="field" id="authEmail" type="email" placeholder="ایمیل" dir="ltr" autocomplete="email">
+      <span class="field-icon">✉️</span>
+    </div>
+    <div class="field-wrap">
+      <input class="field" id="authPass" type="password" placeholder="رمز عبور" dir="ltr" autocomplete="current-password">
+      <button type="button" class="eye-toggle" id="eyeToggle">👁️</button>
+    </div>
   </div>
-  <div class="field-wrap">
-    <input class="field" id="authPass" type="password" placeholder="رمز عبور" dir="ltr" autocomplete="current-password">
-    <button type="button" class="eye-toggle" id="eyeToggle">👁️</button>
+
+  <div id="stepVerify" style="display:none;">
+    <div class="field-wrap">
+      <input class="field" id="otpCode" placeholder="کد تایید" inputmode="numeric" dir="ltr" style="text-align:center; letter-spacing:4px; font-size:18px;">
+    </div>
   </div>
 
   <p class="err-text" id="authErr" style="display:none;"></p>
@@ -133,6 +141,8 @@ input{ font-family:inherit; }
 <script src="config.js"></script>
 <script>
 let mode = 'login'; // 'login' | 'signup'
+let step = 'creds'; // 'creds' | 'verify'
+let pendingSignupEmail = '';
 if(sessionStorage.getItem('pendingOrder')){
   document.getElementById('orderNotice').style.display = 'block';
 }
@@ -149,17 +159,36 @@ document.getElementById('eyeToggle').onclick = () => {
 };
 
 document.getElementById('switchModeBtn').onclick = () => {
+  if(step === 'verify'){
+    step = 'creds';
+    mode = 'signup';
+    updateUI();
+    return;
+  }
   mode = mode === 'login' ? 'signup' : 'login';
-  updateModeUI();
+  updateUI();
 };
 
-function updateModeUI(){
+function updateUI(){
   const title = document.getElementById('authTitle');
   const sub = document.getElementById('authSub');
   const btn = document.getElementById('authBtn');
   const switchBtn = document.getElementById('switchModeBtn');
   document.getElementById('authErr').style.display = 'none';
   document.getElementById('authOk').style.display = 'none';
+
+  if(step === 'verify'){
+    document.getElementById('stepCreds').style.display = 'none';
+    document.getElementById('stepVerify').style.display = 'block';
+    title.textContent = 'تایید ایمیل';
+    sub.textContent = `کد ارسال‌شده به ${pendingSignupEmail} را وارد کنید`;
+    btn.textContent = 'تایید کد';
+    switchBtn.innerHTML = 'بازگشت';
+    return;
+  }
+
+  document.getElementById('stepCreds').style.display = 'block';
+  document.getElementById('stepVerify').style.display = 'none';
   if(mode === 'signup'){
     title.textContent = 'Create Account';
     sub.textContent = 'یک حساب کاربری جدید بسازید';
@@ -174,19 +203,33 @@ function updateModeUI(){
 }
 
 document.getElementById('authBtn').onclick = async () => {
-  const email = emailField.value.trim();
-  const password = passField.value;
   const errEl = document.getElementById('authErr');
   const okEl = document.getElementById('authOk');
   errEl.style.display='none'; okEl.style.display='none';
+  const btn = document.getElementById('authBtn');
 
+  if(step === 'verify'){
+    const token = document.getElementById('otpCode').value.trim();
+    if(!token){ errEl.textContent = 'کد تایید را وارد کنید.'; errEl.style.display='block'; return; }
+    btn.disabled = true; btn.textContent = 'در حال بررسی...';
+    const { error } = await supabaseClient.auth.verifyOtp({ email: pendingSignupEmail, token, type:'signup' });
+    btn.disabled = false; btn.textContent = 'تایید کد';
+    if(error){ errEl.textContent = 'کد وارد شده نادرست یا منقضی شده است.'; errEl.style.display='block'; return; }
+    okEl.textContent = 'خوش آمدید! در حال انتقال به سایت...';
+    okEl.style.display='block';
+    const redirectTo = new URLSearchParams(location.search).get('redirect') || 'index.html';
+    setTimeout(()=>{ location.href = redirectTo; }, 1200);
+    return;
+  }
+
+  const email = emailField.value.trim();
+  const password = passField.value;
   if(!email || password.length < 6){
     errEl.textContent = 'ایمیل معتبر و رمز حداقل ۶ کاراکتری وارد کنید.';
     errEl.style.display='block';
     return;
   }
 
-  const btn = document.getElementById('authBtn');
   btn.disabled = true; btn.textContent = 'در حال بررسی...';
 
   if(mode === 'login'){
@@ -205,8 +248,9 @@ document.getElementById('authBtn').onclick = async () => {
       errEl.style.display='block';
       return;
     }
-    okEl.textContent = 'حساب شما ساخته شد! لینک تایید به ایمیلتان ارسال شد.';
-    okEl.style.display='block';
+    pendingSignupEmail = email;
+    step = 'verify';
+    updateUI();
   }
 };
 </script>
